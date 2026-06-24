@@ -1,0 +1,11 @@
+clueText,clueType,clueDifficulty,answer,answerBreakdown
+"Welsh hero loses his head after prankster’s skewer",Charades,4,IMPALE,"Welsh hero = BALE, loses his head -> ALE, prankster = IMP, ALE after IMP = IMPALE, definition = skewer"
+"Friend with Arab money is content",Charades,3,MATERIAL,"Friend = MATE, Arab money = RIAL, combine for MATERIAL, definition = content"
+"Similar arrangement of a calmer bop",Anagram,1,COMPARABLE,"Anagram indicator = arrangement, definition = similar, anagram of 'a calmer bop"
+"Boy drinks up Malbec as a path to success",Charades,5,LADDER,"Boy = LAD, drinks up -> indicates that next bit needs to be reversed, Malbec = RED (red wine), definition = a path to success"
+"The highest price went from 100 to 1000",Substitution,4,MOST,"Price = COST, 100 in roman numerals is C, 1000 is M, swap C for M to get MOST, definition = the highest"
+"Everyone’s drink?",Wordplay,2,"WORLD CUP","Everyone = WORLD, drink = CUP"
+"A standard home with somewhere to hang the laundry",Charades,4,BASELINE,"definition = a standard, home = BASE, somewhere to hang the laundry = LINE, with -> combine them for BASELINE"
+"Footballer in top eleven",Hidden,1,PELE,"definition = footballer, in -> container indicator, toP ELEven yields PELE"
+"Film about Harry’s friend becoming queen",Container,3,CORONATING,"definition = becoming queen, harry's friend = RON, film = COATING, about -> containment indicator, gives CO-RON-ATING"
+"To be and not to be?",Wordplay,5,SUPERPOSITION,"Superpostion is when something is in two states at once, wordplay on the classic hamlet quote"
