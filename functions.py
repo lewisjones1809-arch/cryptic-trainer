@@ -98,8 +98,11 @@ def import_clues_from_df(con: sqlite3.Connection, df: pd.DataFrame) -> int:
 def initial_setup(con:sqlite3.Connection) -> None:
     create_database(con)
 
-def select_random_clue(df: pd.DataFrame) -> pd.DataFrame:
-    return df.sample(1)
+def select_random_clue(df: pd.DataFrame, exclude_id=None) -> pd.DataFrame:
+    pool = df
+    if exclude_id is not None and len(df) > 1:
+        pool = df[df['clueID'] != exclude_id]
+    return pool.sample(1)
 
 def build_context(clue_row) -> str:
     answer = clue_row['answer']

@@ -48,7 +48,8 @@ if st.button('Submit Answer'):
         st.session_state.attempts += 1
 
 if st.button('New Clue', on_click=on_click):
-    st.session_state.clue = select_random_clue(clues)
+    current_id = st.session_state.clue['clueID'].iloc[0]
+    st.session_state.clue = select_random_clue(clues, exclude_id=current_id)
     st.rerun()
 
 elapsed = time.time() - st.session_state.start_time
