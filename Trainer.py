@@ -11,11 +11,6 @@ if not st.user.is_logged_in:
         st.login()
     st.stop()        # don't render the rest until logged in
 
-# --- below here, user is logged in ---
-st.write(f"Welcome, {st.user.name}!")
-if st.button("Log out"):
-    st.logout()
-
 con = st.connection("postgres", type="sql")
 
 table_exists = con.query("SELECT to_regclass('public.clues') IS NOT NULL AS exists", ttl=0).iloc[0]["exists"]

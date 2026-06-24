@@ -6,6 +6,17 @@ con = st.connection("postgres", type="sql")
 
 st.title('Settings')
 
+if not st.user.is_logged_in:
+    st.title("Cryptic Trainer")
+    st.write("Please log in to continue.")
+    if st.button("Log in with Google"):
+        st.login()
+    st.stop() 
+
+st.write(f"Welcome, {st.user.name}!")
+if st.button("Log out"):
+    st.logout()
+
 clue_csv = st.file_uploader('Import Clues', type='.csv')
 
 if clue_csv is not None:
