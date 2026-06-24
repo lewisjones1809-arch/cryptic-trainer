@@ -11,6 +11,7 @@ A full-stack cryptic crossword trainer with 10 clues. This app is designed to he
 - **Loads clues from CSV:** given a csv file with cryptic crossword clues and answers in, the app loads these and presents them to the user as individual challenges
 - **Streamlit Front End:** Simple streamlit front end that displays the clue, the letters in the answer and allows the user to take a guess.
 - **AI Helper:** an LLM (currently gpt-oss-120b) designed to nudge the user towards the right answer if they are stuck, using the socratic method and explicitly told not to leak the answer or be too descriptive with how to arrive at the answer.
+- **Google authenticated login:** authenticated login using a google OAuth client to enable per-user stat tracking and other functionality.
 
 ## Architecture
 
@@ -25,7 +26,7 @@ A full-stack cryptic crossword trainer with 10 clues. This app is designed to he
 ## Tech stack
 
 - **Python** - core logic
-- **SQLite** - storage (via the `sqlite3` standard library)
+- **Postgres** - storage via neon hosted postgres database
 - **pandas** - data transformation and aggregation
 - **Streamlit** - dashboard / UI
 - **Groq** - used to access the LLM with API key stored as streamlit secret
