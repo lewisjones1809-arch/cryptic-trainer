@@ -1,5 +1,6 @@
 import sqlite3
-from functions import initial_setup, select_random_clue, get_tutor_reply, import_clues_from_df, format_enumeration
+from functions import initial_setup, select_random_clue, import_clues_from_df, format_enumeration
+from tutor import get_tutor_reply
 import pandas as pd
 import streamlit as st
 import time
