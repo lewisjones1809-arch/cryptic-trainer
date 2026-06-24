@@ -17,10 +17,10 @@ A full-stack cryptic crossword trainer with 10 clues. This app is designed to he
 **Data model** - a normalised SQLite schema:
 
 - `clues` - a database of all the clues, answers and how to get to the answers
-- `attempts` - a database of all attempts logged by all users
-- `users` - a database of the app users
+<!-- - `attempts` - a database of all attempts logged by all users
+- `users` - a database of the app users -->
 
-**Flow:** ingest clues from csv -> present clues one at a time to the user -> user takes a guess -> attempt is logged for the user
+**Flow:** ingest clues from csv -> present clues one at a time to the user -> user takes a guess <!--  -> attempt is logged for the user -->
 
 ## Tech stack
 
@@ -50,14 +50,14 @@ streamlit run Trainer.py
 
 The app comes with the clues database as standard, but if for some reason the app errors on start saying there are no clues in the database, head to settings and import the clues.csv file from there.
 
-## Design decisions [WIP]
+<!-- ## Design decisions [WIP]
 
 A few choices that reflect deliberate engineering rather than defaults:
 
 - **Derived inventory over stored state:** holdings are recomputed from immutable purchase/sale logs, so the data can't silently corrupt and can always be rebuilt.
 - **FIFO cost basis:** chosen over average cost because purchase prices vary by an order of magnitude, making average meaningless; verified against hand-calculated cases including multi-lot and out-of-order-date scenarios.
 - **Variant detection from price data:** which finishes exist is inferred from which price families are present, rather than from a brittle rarity-based heuristic.
-- **Swappable data source:** ingestion is isolated behind a thin layer, so the price/card provider can be changed without touching the rest of the app.
+- **Swappable data source:** ingestion is isolated behind a thin layer, so the price/card provider can be changed without touching the rest of the app. -->
 
 ## Use of AI
 
