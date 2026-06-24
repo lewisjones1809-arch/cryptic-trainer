@@ -28,6 +28,9 @@ def on_click():
     st.session_state.attempts = 0
     st.session_state.tutor_history = []
 
+def on_guess():
+    st.session_state.guess_input = ''
+
 clue = st.session_state.clue
 clue_text = clue['clueText'].iloc[0]
 answer = clue['answer'].iloc[0]
@@ -35,7 +38,7 @@ answer = clue['answer'].iloc[0]
 st.write('Clue:')
 st.write(clue_text)
 
-guess = st.text_input('Answer:', key='guess_input')
+guess = st.text_input('Answer:', key='guess_input', placeholder=f'You have had {st.session_state.attempts} attempts')
 
 if st.button('Submit Answer'):
     if answer.lower() == guess.strip().lower():

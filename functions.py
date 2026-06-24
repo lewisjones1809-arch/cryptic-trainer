@@ -113,7 +113,7 @@ def get_tutor_reply(clue_row, history: list, user_message: str) -> str:
     messages.append({"role": "user", "content": user_message})
 
     reply = client.chat.completions.create(
-        model="llama-3.3-70b-versatile",
+        model="openai/gpt-oss-120b",
         messages=messages,
     ).choices[0].message.content
 
