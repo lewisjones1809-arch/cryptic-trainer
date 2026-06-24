@@ -73,12 +73,12 @@ Claude has been used to assist in this project a handful of times. These are lis
 - AI Helper
 
 **In progress for v2:**
-- More clues
-- HTML/CSS front-end
-- User and saved stats functionality
-- Pick clues by difficulty and type
-- Tailored training
-- Improved AI Helper performance
+- [ ] More clues
+- [ ] HTML/CSS front-end
+- [ ] User and saved stats functionality
+- [ ] Pick clues by difficulty and type
+- [ ] Tailored training
+- [ ] Improved AI Helper performance
 
 ## Notes
 
