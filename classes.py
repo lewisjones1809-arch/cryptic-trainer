@@ -17,7 +17,8 @@ class User:
     def __init__(self, sub, email, name):
         self.sub = sub
         self.email = email
-        self.name = name    
+        self.name = name
+        self.id = None
 
     def write_user(self, engine: Engine):
         with engine.begin() as conn:

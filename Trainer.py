@@ -38,7 +38,10 @@ def on_click():
     st.session_state.tutor_history = []
 
 def on_guess():
-    log_attempt(con.engine, st.session_state.guess_input, st.session_state.clue, st.session_state.user)
+    user = st.session_state.user
+    if user.get_id() is None:
+        user.write_user(con.engine)
+    log_attempt(con.engine, st.session_state.guess_input, st.session_state.clue, user)
     st.session_state.guess_input = ''
 
 clue = st.session_state.clue
