@@ -7,7 +7,20 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-client = Groq(api_key=os.getenv("GROQ_API_KEY"))
+
+def get_groq_api_key():
+    """Use GROQ_API_KEY from .env when running locally, fall back to
+    Streamlit secrets when deployed."""
+    api_key = os.getenv("GROQ_API_KEY")
+    if not api_key:
+        try:
+            api_key = st.secrets["GROQ_API_KEY"]
+        except (KeyError, FileNotFoundError):
+            api_key = None
+    return api_key
+
+
+client = Groq(api_key=get_groq_api_key())
 
 SYSTEM_PROMPT = """You are a Socratic cryptic crossword tutor. Your ONE hard rule: \
 NEVER state the answer, never spell it, never give its letters, never confirm a \
