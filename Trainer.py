@@ -1,5 +1,5 @@
 import sqlite3
-from functions import initial_setup, select_random_clue, get_tutor_reply, import_clues_from_df
+from functions import initial_setup, select_random_clue, get_tutor_reply, import_clues_from_df, format_enumeration
 import pandas as pd
 import streamlit as st
 import time
@@ -32,8 +32,8 @@ def on_guess():
     st.session_state.guess_input = ''
 
 clue = st.session_state.clue
-clue_text = clue['clueText'].iloc[0]
 answer = clue['answer'].iloc[0]
+clue_text = f"{clue['clueText'].iloc[0]} {format_enumeration(answer)}"
 
 st.write('Clue:')
 st.write(clue_text)
@@ -55,31 +55,31 @@ if st.button('New Clue', on_click=on_click):
 elapsed = time.time() - st.session_state.start_time
 unlocked = elapsed >= 120 and st.session_state.attempts >= 5
 
-if unlocked:
-    st.divider()
-    st.subheader('Stuck? Ask the AI')
+#if unlocked:
+st.divider()
+st.subheader('Stuck? Ask the AI')
 
-    if 'tutor_history' not in st.session_state:
-        st.session_state.tutor_history = []
+if 'tutor_history' not in st.session_state:
+    st.session_state.tutor_history = []
 
-    # Render past turns
-    for turn in st.session_state.tutor_history:
-        with st.chat_message('user' if turn['role'] == 'user' else 'assistant'):
-            st.write(turn['text'])
+# Render past turns
+for turn in st.session_state.tutor_history:
+    with st.chat_message('user' if turn['role'] == 'user' else 'assistant'):
+        st.write(turn['text'])
 
-    if prompt := st.chat_input("e.g. 'I think the definition is skewer?'"):
-        st.session_state.tutor_history.append({'role': 'user', 'text': prompt})
-        with st.chat_message('user'):
-            st.write(prompt)
+if prompt := st.chat_input("e.g. 'I think the definition is skewer?'"):
+    st.session_state.tutor_history.append({'role': 'user', 'text': prompt})
+    with st.chat_message('user'):
+        st.write(prompt)
 
-        clue_row = clue.iloc[0] 
-        reply = get_tutor_reply(
-            clue_row,
-            st.session_state.tutor_history[:-1],
-            prompt,
-        )
-        st.session_state.tutor_history.append({'role': 'model', 'text': reply})
-        with st.chat_message('assistant'):
-            st.write(reply)
+    clue_row = clue.iloc[0] 
+    reply = get_tutor_reply(
+        clue_row,
+        st.session_state.tutor_history[:-1],
+        prompt,
+    )
+    st.session_state.tutor_history.append({'role': 'model', 'text': reply})
+    with st.chat_message('assistant'):
+        st.write(reply)
 
 
