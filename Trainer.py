@@ -1,21 +1,29 @@
-import sqlite3
 from functions import initial_setup, select_random_clue, import_clues_from_df, format_enumeration
 from tutor import get_tutor_reply
 import pandas as pd
 import streamlit as st
 import time
 
-con = sqlite3.connect('cryptic_trainer.db')
-cur = con.cursor()
+if not st.user.is_logged_in:
+    st.title("Cryptic Trainer")
+    st.write("Please log in to continue.")
+    if st.button("Log in with Google"):
+        st.login()
+    st.stop()        # don't render the rest until logged in
 
-table_exists = cur.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='clues'").fetchone()
+# --- below here, user is logged in ---
+st.write(f"Welcome, {st.user.name}!")
+if st.button("Log out"):
+    st.logout()
 
-if table_exists is None:
-    initial_setup(con)
+con = st.connection("postgres", type="sql")
 
-clues = pd.read_sql('SELECT * FROM clues', con)
+table_exists = con.query("SELECT to_regclass('public.clues') IS NOT NULL AS exists", ttl=0).iloc[0]["exists"]
 
-st.title('Cryptic Trainer')
+if not table_exists:
+    initial_setup(con.engine)
+
+clues = con.query("SELECT * FROM clues", ttl=0)
 
 # Pick an initial clue once and keep it in session state so it survives reruns
 if 'clue' not in st.session_state:
@@ -34,7 +42,7 @@ def on_guess():
 
 clue = st.session_state.clue
 answer = clue['answer'].iloc[0]
-clue_text = f"{clue['clueText'].iloc[0]} {format_enumeration(answer)}"
+clue_text = f"{clue['text'].iloc[0]} {format_enumeration(answer)}"
 
 st.write('Clue:')
 st.write(clue_text)
@@ -49,7 +57,7 @@ if st.button('Submit Answer'):
         st.session_state.attempts += 1
 
 if st.button('New Clue', on_click=on_click):
-    current_id = st.session_state.clue['clueID'].iloc[0]
+    current_id = st.session_state.clue['id'].iloc[0]
     st.session_state.clue = select_random_clue(clues, exclude_id=current_id)
     st.rerun()
 

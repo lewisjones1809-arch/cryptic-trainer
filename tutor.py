@@ -26,7 +26,7 @@ client = Groq(api_key=get_groq_api_key())
 PRIMARY_MODEL = "openai/gpt-oss-120b"
 MAX_RETRIES = 3
 
-# Wordplay fragments/answers are written ALL-CAPS in answerTransformation,
+# Wordplay fragments/answers are written ALL-CAPS in transformation,
 # e.g. "Friend = MATE; Arab money = RIAL; combine MATE + RIAL for MATERIAL".
 ALLCAPS_TOKEN_RE = re.compile(r"\b[A-Z]{3,}\b")
 WORD_RE = re.compile(r"[A-Za-z]+")
@@ -158,7 +158,7 @@ def letter_counts(clue_row) -> str:
     answer = str(clue_row['answer'])
     pairs = []
     seen = set()
-    for tok in ALLCAPS_TOKEN_RE.findall(str(clue_row['answerTransformation'])) \
+    for tok in ALLCAPS_TOKEN_RE.findall(str(clue_row['transformation'])) \
             + WORD_RE.findall(answer):
         up = tok.upper()
         if up not in seen:
@@ -169,15 +169,15 @@ def letter_counts(clue_row) -> str:
 
 def build_context(clue_row) -> str:
     answer = clue_row['answer']
-    return (f"CLUE: {clue_row['clueText']}\n"
+    return (f"CLUE: {clue_row['text']}\n"
             f"ENUMERATION: ({len(answer.replace(' ', ''))})\n"
-            f"TYPE (reference only): {clue_row['clueType']}\n"
-            f"DIFFICULTY: {clue_row['clueDifficulty']}/5\n"
+            f"TYPE (reference only): {clue_row['type']}\n"
+            f"DIFFICULTY: {clue_row['difficulty']}/5\n"
             f"DEFINITION part (reference only, this is the TRUE split — never reveal, "
             f"but use it to correct the solver if they mis-identify it): "
-            f"{clue_row['answerDefinition']}\n"
+            f"{clue_row['definition']}\n"
             f"WORDPLAY/TRANSFORMATION (reference only, NEVER reveal directly): "
-            f"{clue_row['answerTransformation']}\n"
+            f"{clue_row['transformation']}\n"
             f"LETTER COUNTS (authoritative — use these exact numbers, never count "
             f"letters yourself): {letter_counts(clue_row)}\n"
             f"ANSWER (reference only, NEVER reveal or spell): {answer}")
@@ -188,7 +188,7 @@ def build_blocklist(clue_row) -> set:
     words / no-space form) plus every ALL-CAPS fodder fragment in the
     transformation, minus common words the tutor needs."""
     answer = str(clue_row['answer'])
-    transformation = str(clue_row['answerTransformation'])
+    transformation = str(clue_row['transformation'])
 
     blocklist = set()
     blocklist.add(answer.lower())
@@ -240,8 +240,8 @@ def judge_leak(clue_row, reply: str, released=()):
     allowed to reuse. Fails safe: any error counts as a leak."""
     allowed = ", ".join(sorted(released)) or "(none yet)"
     user = (f"ANSWER: {clue_row['answer']}\n"
-            f"DEFINITION: {clue_row['answerDefinition']}\n"
-            f"WORDPLAY: {clue_row['answerTransformation']}\n"
+            f"DEFINITION: {clue_row['definition']}\n"
+            f"WORDPLAY: {clue_row['transformation']}\n"
             f"SOLVER-IDENTIFIED PARTS (tutor MAY reuse these freely): {allowed}\n\n"
             f"CANDIDATE REPLY:\n{reply}")
     try:
@@ -263,7 +263,7 @@ def safe_fallback_reply(clue_row) -> str:
     """Last-resort nudge when no clean generated reply survives the guard. Names
     the definition (a word already visible in the clue surface) so a stuck solver
     still makes progress; never reveals the answer."""
-    definition = str(clue_row["answerDefinition"]).strip()
+    definition = str(clue_row["definition"]).strip()
     return (f'Let\'s lock down one thing: the straight definition in this clue is '
             f'"{definition}", so the rest is the wordplay. Looking only at that wordplay '
             f'part, what do you think it\'s telling you to do with the letters?')

@@ -1,34 +1,59 @@
-import sqlite3
 import pandas as pd
+from sqlalchemy import text
+from sqlalchemy.engine import Engine
 
-def create_database(con: sqlite3.Connection) -> None:
-    cur = con.cursor()
+def create_database(engine: Engine) -> None:
+    with engine.begin() as conn:
+        conn.execute(text("DROP TABLE IF EXISTS clues"))
+        conn.execute(text(
+            "CREATE TABLE IF NOT EXISTS clues ("
+            "id SERIAL PRIMARY KEY, text TEXT, type TEXT, difficulty INTEGER, "
+            "answer TEXT, definition TEXT, transformation TEXT)"
+        ))
 
-    cur.execute("DROP TABLE IF EXISTS clues")
+def create_clue(engine: Engine, clue_text: str, clue_type: str, clue_difficulty: int, answer: str, definition: str, transformation) -> None:
+    with engine.begin() as conn:
+        conn.execute(
+            text("INSERT INTO clues (text, type, difficulty, answer, definition, transformation) "
+                 "VALUES (:text, :type, :difficulty, :answer, :definition, :transformation)"),
+            {
+                "text": clue_text,
+                "type": clue_type,
+                "difficulty": clue_difficulty,
+                "answer": answer,
+                "definition": definition,
+                "transformation": transformation,
+            },
+        )
 
-    cur.execute("CREATE TABLE IF NOT EXISTS clues (clueID INTEGER PRIMARY KEY, clueText TEXT, clueType TEXT, clueDifficulty INTEGER, answer TEXT, answerDefinition TEXT, answerTransformation)")
-    con.commit()
+def import_clues_from_df(engine: Engine, df: pd.DataFrame) -> int:
+    rows = [
+        {
+            "text": row["text"],
+            "type": row["type"],
+            "difficulty": row["difficulty"],
+            "answer": row["answer"],
+            "definition": row["definition"],
+            "transformation": row["transformation"],
+        }
+        for _, row in df.iterrows()
+    ]
+    if rows:
+        with engine.begin() as conn:
+            conn.execute(
+                text("INSERT INTO clues (text, type, difficulty, answer, definition, transformation) "
+                     "VALUES (:text, :type, :difficulty, :answer, :definition, :transformation)"),
+                rows,
+            )
+    return len(rows)
 
-def create_clue(con: sqlite3.Connection, clue_text: str, clue_type: str, clue_difficulty: int, answer: str, answer_definition: str, answer_transformation) -> None:
-    cur = con.cursor()
-
-    cur.execute("INSERT INTO clues (clueText, clueType, clueDifficulty, answer, answerDefinition, answerTransformation) VALUES (?, ?, ?, ?, ?, ?)", (clue_text, clue_type, clue_difficulty, answer, answer_definition, answer_transformation))
-    con.commit()
-
-def import_clues_from_df(con: sqlite3.Connection, df: pd.DataFrame) -> int:
-    counter = 0
-    for index, row in df.iterrows():
-        create_clue(con, row['clueText'], row['clueType'], row['clueDifficulty'], row['answer'], row['answerDefinition'], row['answerTransformation'])
-        counter += 1
-    return counter
-
-def initial_setup(con:sqlite3.Connection) -> None:
-    create_database(con)
+def initial_setup(engine: Engine) -> None:
+    create_database(engine)
 
 def select_random_clue(df: pd.DataFrame, exclude_id=None) -> pd.DataFrame:
     pool = df
     if exclude_id is not None and len(df) > 1:
-        pool = df[df['clueID'] != exclude_id]
+        pool = df[df['id'] != exclude_id]
     return pool.sample(1)
 
 def format_enumeration(answer: str) -> str:

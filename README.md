@@ -63,7 +63,8 @@ A few choices that reflect deliberate engineering rather than defaults:
 
 Claude has been used to assist in this project a handful of times. These are listed below for complete transparency:
 
-- **LLM Implementation support** - I asked Claude to support with the implementation of the LLM into this app. This is done due to the fact that the goal of this project was to build a fun and useful app, and to test my ability to link a python backend into a Streamlit (eventually HTML/CSS) front-end in a user-friendly way. Due to the nature of having to fine tune LLM prompts and context, I decided this was not the most appropriate use of personal time for the desired learning and development outcomes I had for the project.
+- **LLM implementation support** - I asked Claude to support with the implementation of the LLM into this app. This is done due to the fact that the goal of this project was to build a fun and useful app, and to test my ability to link a python backend into a Streamlit (eventually HTML/CSS) front-end in a user-friendly way and do user authentication. Due to the nature of having to fine tune LLM prompts and context, I decided this was not the most appropriate use of personal time for the desired learning and development outcomes I had for the project.
+- **Migration to postgres check** - During the migration from sqlite3 to postgres, I asked Claude to ensure that I had successfully removed all dependence on sqlite3 and that my migration to postgres had been done correctly. It identified a couple of places I had missed which I subsequently corrected.
 
 ## Roadmap
 

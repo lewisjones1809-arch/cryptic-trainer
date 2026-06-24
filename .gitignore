@@ -4,3 +4,4 @@ test.py
 .env
 .claude/
 pages/1_Submit_a_clue.py
+.streamlit/
