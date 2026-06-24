@@ -7,7 +7,6 @@ con = st.connection("postgres", type="sql")
 st.title('Settings')
 
 if not st.user.is_logged_in:
-    st.title("Cryptic Trainer")
     st.write("Please log in to continue.")
     if st.button("Log in with Google"):
         st.login()

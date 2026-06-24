@@ -4,8 +4,9 @@ import pandas as pd
 import streamlit as st
 import time
 
+st.title("Cryptic Trainer")
+
 if not st.user.is_logged_in:
-    st.title("Cryptic Trainer")
     st.write("Please log in to continue.")
     if st.button("Log in with Google"):
         st.login()
