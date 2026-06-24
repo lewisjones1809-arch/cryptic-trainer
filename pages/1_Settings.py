@@ -11,7 +11,7 @@ clue_csv = st.file_uploader('Import Clues', type='.csv')
 
 if clue_csv is not None:
     df = pd.read_csv(clue_csv)
-    required = {'clueText', 'clueType', 'clueDifficulty', 'answer', 'answerBreakdown'}
+    required = {'clueText', 'clueType', 'clueDifficulty', 'answer', 'answerDefinition', 'answerTransformation'}
 
     if not required.issubset(df.columns):
         st.error(f'CSV missing columns: {required - set(df.columns)}')
