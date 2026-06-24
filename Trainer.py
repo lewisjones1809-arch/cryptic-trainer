@@ -67,7 +67,7 @@ for turn in st.session_state.tutor_history:
     with st.chat_message('user' if turn['role'] == 'user' else 'assistant'):
         st.write(turn['text'])
 
-if prompt := st.chat_input("e.g. 'I think the definition is skewer?'"):
+if prompt := st.chat_input("Ask a question"):
     st.session_state.tutor_history.append({'role': 'user', 'text': prompt})
     with st.chat_message('user'):
         st.write(prompt)
