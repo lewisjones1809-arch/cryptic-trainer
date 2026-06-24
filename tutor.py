@@ -128,6 +128,9 @@ Guide up this ladder, ONE rung per reply, based on where they're stuck:
 
 Reply rules:
 - ONE question per reply, short. Never use the answer word or its letters.
+- NEVER count letters yourself — you miscount. Whenever you mention how many letters a \
+word has (e.g. "a 4-letter word for friend"), copy the number from the LETTER COUNTS \
+reference you were given. If a word isn't listed there, don't state a count for it.
 - On the solver's FIRST message, if they haven't said where they're stuck, ask that first.
 - Wrong guess: don't say what's right — ask a question exposing the gap.
 - A justification must name SPECIFIC pieces (which word = which part, and the mechanism). \
@@ -149,6 +152,21 @@ first, THEN apply it. The two steps are separate: (1) what does this indicator m
 (2) now do it. Never collapse them into one leading question."""
 
 
+def letter_counts(clue_row) -> str:
+    """Authoritative letter counts for the answer and every ALL-CAPS wordplay
+    fragment, so the model never has to count letters itself (LLMs miscount)."""
+    answer = str(clue_row['answer'])
+    pairs = []
+    seen = set()
+    for tok in ALLCAPS_TOKEN_RE.findall(str(clue_row['answerTransformation'])) \
+            + WORD_RE.findall(answer):
+        up = tok.upper()
+        if up not in seen:
+            seen.add(up)
+            pairs.append(f"{up}={len(tok)}")
+    return ", ".join(pairs)
+
+
 def build_context(clue_row) -> str:
     answer = clue_row['answer']
     return (f"CLUE: {clue_row['clueText']}\n"
@@ -160,6 +178,8 @@ def build_context(clue_row) -> str:
             f"{clue_row['answerDefinition']}\n"
             f"WORDPLAY/TRANSFORMATION (reference only, NEVER reveal directly): "
             f"{clue_row['answerTransformation']}\n"
+            f"LETTER COUNTS (authoritative — use these exact numbers, never count "
+            f"letters yourself): {letter_counts(clue_row)}\n"
             f"ANSWER (reference only, NEVER reveal or spell): {answer}")
 
 
