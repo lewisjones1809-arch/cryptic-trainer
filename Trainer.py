@@ -1,4 +1,4 @@
-from functions import initial_setup, select_random_clue, import_clues_from_df, format_enumeration, log_attempt
+from functions import initial_setup, select_random_clue, import_clues_from_df, format_enumeration, log_attempt, get_clues_solved
 from tutor import get_tutor_reply
 import pandas as pd
 import streamlit as st
@@ -11,12 +11,14 @@ if not st.user.is_logged_in:
     st.write("Please log in to continue.")
     if st.button("Log in with Google"):
         st.login()
-    st.stop()        # don't render the rest until logged in
+    st.stop()
 
 con = st.connection("postgres", type="sql")
 
-st.session_state.user = User(st.user.sub, st.user.email, st.user.name)
-st.session_state.user.write_user(con.engine)
+if "user" not in st.session_state:
+        user = User(st.user.sub, st.user.email, st.user.name)
+        user.write_user(con.engine)       
+        st.session_state.user = user 
 
 table_exists = con.query("SELECT to_regclass('public.clues') IS NOT NULL AS exists", ttl=0).iloc[0]["exists"]
 
@@ -25,9 +27,11 @@ if not table_exists:
 
 clues = con.query("SELECT * FROM clues", ttl=0)
 
+solved_ids = {row[0] for row in get_clues_solved(con.engine, st.session_state.user)}
+
 # Pick an initial clue once and keep it in session state so it survives reruns
 if 'clue' not in st.session_state:
-    st.session_state.clue = select_random_clue(clues)
+    st.session_state.clue = select_random_clue(clues, exclude_ids=solved_ids)
     st.session_state.start_time = time.time()
     st.session_state.attempts = 0
 
@@ -38,11 +42,19 @@ def on_click():
     st.session_state.tutor_history = []
 
 def on_guess():
+    st.session_state.last_guess = st.session_state.guess_input
     user = st.session_state.user
     if user.get_id() is None:
         user.write_user(con.engine)
     log_attempt(con.engine, st.session_state.guess_input, st.session_state.clue, user)
     st.session_state.guess_input = ''
+
+all_solved = len(clues) > 0 and set(clues['id']).issubset(solved_ids)
+
+if all_solved:
+    st.write('Clue:')
+    st.write('All clues solved! More clues coming in a future update!')
+    st.stop()
 
 clue = st.session_state.clue
 answer = clue['answer'].iloc[0]
@@ -54,7 +66,7 @@ st.write(clue_text)
 guess = st.text_input('Answer:', key='guess_input', placeholder=f'You have had {st.session_state.attempts} attempts')
 
 if st.button('Submit Answer', on_click=on_guess):
-    if answer.lower() == guess.strip().lower():
+    if answer.lower() == st.session_state.last_guess.strip().lower():
         st.success('Correct!')
     else:
         st.error('Incorrect!')
@@ -62,7 +74,7 @@ if st.button('Submit Answer', on_click=on_guess):
 
 if st.button('New Clue', on_click=on_click):
     current_id = st.session_state.clue['id'].iloc[0]
-    st.session_state.clue = select_random_clue(clues, exclude_id=current_id)
+    st.session_state.clue = select_random_clue(clues, exclude_ids=solved_ids | {current_id})
     st.rerun()
 
 elapsed = time.time() - st.session_state.start_time

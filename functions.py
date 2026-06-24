@@ -51,10 +51,13 @@ def import_clues_from_df(engine: Engine, df: pd.DataFrame) -> int:
 def initial_setup(engine: Engine) -> None:
     create_database(engine)
 
-def select_random_clue(df: pd.DataFrame, exclude_id=None) -> pd.DataFrame:
+def select_random_clue(df: pd.DataFrame, exclude_ids=None) -> pd.DataFrame:
     pool = df
-    if exclude_id is not None and len(df) > 1:
-        pool = df[df['id'] != exclude_id]
+    if exclude_ids:
+        candidate = df[~df['id'].isin(list(exclude_ids))]
+        # Fall back to the full set if every clue is excluded (e.g. all solved)
+        if len(candidate) > 0:
+            pool = candidate
     return pool.sample(1)
 
 def format_enumeration(answer: str) -> str:
@@ -71,3 +74,33 @@ def log_attempt(engine: Engine, attempt, clue, user: User):
                 "guess": attempt,
             }
         )
+
+def get_clues_seen(engine: Engine, user: User):
+    with engine.begin() as conn:
+        clues_tried = conn.execute(
+            text("SELECT DISTINCT clue_id FROM attempts WHERE user_id = :user_id"),
+            {
+                "user_id": user.get_id()
+            }
+        )
+        return clues_tried.fetchall()
+
+def calc_clues_seen(engine:Engine, user: User):
+    return len(get_clues_seen(engine, user))
+    
+def get_clues_solved(engine: Engine, user: User):
+    with engine.begin() as conn:
+        clues_solved = conn.execute(
+            text("SELECT DISTINCT clue_id FROM attempts " \
+            "LEFT JOIN clues " \
+            "ON attempts.clue_id = clues.id " \
+            "WHERE user_id = :user_id "
+            "AND LOWER(TRIM(attempts.guess)) = LOWER(TRIM(clues.answer))"),
+            {
+                "user_id": user.get_id()
+            }
+        )
+        return clues_solved.fetchall()
+
+def calc_clues_solved(engine:Engine, user: User):
+        return len(get_clues_solved(engine, user))
