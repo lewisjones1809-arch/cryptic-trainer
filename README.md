@@ -1,6 +1,6 @@
-# Pokémon Card Inventory Tracker
+# Cryptic Trainer
 
-LIVE v1 STREAMLIT LINK: https://cryptictrainer.streamlit.app
+LIVE v1.5 STREAMLIT LINK: https://cryptictrainer.streamlit.app
 
 A full-stack cryptic crossword trainer with 10 clues. This app is designed to help players answer cryptic crossword clues. To do this, an AI Helper has been created that uses the socratic method to nudge the user in the right direction instead of simply giving them the answers.
 
