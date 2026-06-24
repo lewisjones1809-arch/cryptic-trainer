@@ -8,6 +8,7 @@
 ## v2
 - [x] User system with google login
 - [x] Migrate to postgres
+- [ ] Log attempts
 - [ ] Saved stats
 - [ ] Tailored training based on clue types user has struggled with
 - [ ] Allow user to pick clues by type and difficulty

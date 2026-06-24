@@ -1,8 +1,9 @@
-from functions import initial_setup, select_random_clue, import_clues_from_df, format_enumeration
+from functions import initial_setup, select_random_clue, import_clues_from_df, format_enumeration, log_attempt
 from tutor import get_tutor_reply
 import pandas as pd
 import streamlit as st
 import time
+from classes import User
 
 st.title("Cryptic Trainer")
 
@@ -13,6 +14,9 @@ if not st.user.is_logged_in:
     st.stop()        # don't render the rest until logged in
 
 con = st.connection("postgres", type="sql")
+
+st.session_state.user = User(st.user.sub, st.user.email, st.user.name)
+st.session_state.user.write_user(con.engine)
 
 table_exists = con.query("SELECT to_regclass('public.clues') IS NOT NULL AS exists", ttl=0).iloc[0]["exists"]
 
@@ -34,6 +38,7 @@ def on_click():
     st.session_state.tutor_history = []
 
 def on_guess():
+    log_attempt(con.engine, st.session_state.guess_input, st.session_state.clue, st.session_state.user)
     st.session_state.guess_input = ''
 
 clue = st.session_state.clue
@@ -45,7 +50,7 @@ st.write(clue_text)
 
 guess = st.text_input('Answer:', key='guess_input', placeholder=f'You have had {st.session_state.attempts} attempts')
 
-if st.button('Submit Answer'):
+if st.button('Submit Answer', on_click=on_guess):
     if answer.lower() == guess.strip().lower():
         st.success('Correct!')
     else:

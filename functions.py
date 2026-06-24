@@ -1,6 +1,7 @@
 import pandas as pd
 from sqlalchemy import text
 from sqlalchemy.engine import Engine
+from classes import User
 
 def create_database(engine: Engine) -> None:
     with engine.begin() as conn:
@@ -57,5 +58,16 @@ def select_random_clue(df: pd.DataFrame, exclude_id=None) -> pd.DataFrame:
     return pool.sample(1)
 
 def format_enumeration(answer: str) -> str:
-    """Cryptic-style letter count per word, e.g. 'RED HERRING' -> '(3,7)'."""
     return '(' + ','.join(str(len(word)) for word in answer.split()) + ')'
+
+def log_attempt(engine: Engine, attempt, clue, user: User):
+    with engine.begin() as conn:
+        conn.execute(
+            text("INSERT INTO attempts (clue_id, user_id, guess) "
+                 "VALUES (:clue_id, :user_id, :guess)"),
+            {
+                "clue_id": clue['id'].iloc[0],
+                "user_id": user.get_id(),
+                "guess": attempt,
+            }
+        )
