@@ -18,7 +18,7 @@ A full-stack cryptic crossword trainer with 10 clues. This app is designed to he
 
 ## Architecture
 
-**Data model** - a normalised SQLite schema:
+**Data model** - Neon-hosted Postgres database:
 
 - `clues` - a database of all the clues, answers and how to get to the answers
 - `clue_tags` - a database that gives information about the types of each of the clues
