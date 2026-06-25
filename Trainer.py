@@ -1,4 +1,4 @@
-from functions import initial_setup, select_random_clue, import_clues_from_df, format_enumeration, log_attempt, get_clues_solved, get_all_clues, clues_table_exists, clear_progress_caches, clear_clue_caches
+from functions import select_random_clue, format_enumeration, log_attempt, get_clues_solved, get_all_clues, clear_progress_caches
 from tutor import get_tutor_reply
 import pandas as pd
 import streamlit as st
@@ -19,12 +19,6 @@ if "user" not in st.session_state:
         user = User(st.user.sub, st.user.email, st.user.name)
         user.write_user(con.engine)       
         st.session_state.user = user 
-
-table_exists = clues_table_exists(con.engine)
-
-if not table_exists:
-    initial_setup(con.engine)
-    clear_clue_caches()
 
 clues = get_all_clues(con.engine)
 

@@ -9,49 +9,91 @@ from classes import User
 # how long another open session can show stale shared data.
 CACHE_TTL = 300
 
-def create_database(engine: Engine) -> None:
-    with engine.begin() as conn:
-        conn.execute(text("DROP TABLE IF EXISTS clues"))
-        conn.execute(text(
-            "CREATE TABLE IF NOT EXISTS clues ("
-            "id SERIAL PRIMARY KEY, text TEXT, type TEXT, difficulty INTEGER, "
-            "answer TEXT, definition TEXT, transformation TEXT)"
-        ))
+# The canonical set of cryptic clue types. Used to populate the tag pickers and
+# to validate imported clues. Single source of truth — import from here rather
+# than re-declaring the list per page.
+CLUE_TYPES = [
+    'Charades',
+    'Anagram',
+    'Homophone',
+    'Double Definition',
+    'Hidden clue',
+    'Letter clue',
+    'Different adverb',
+    'Container',
+    'Deletion',
+    'Reversals',
+    'Repetition',
+    'Spoonerism',
+    'Substitution',
+    'Mobile Letters',
+    'Pun',
+    'Wordplay',
+]
 
-def create_clue(engine: Engine, clue_text: str, clue_type: str, clue_difficulty: int, answer: str, definition: str, transformation: str, author: str) -> None:
+def create_clue(engine: Engine, clue_text: str, tags: list, clue_difficulty: int, answer: str, definition: str, transformation: str, author: str) -> None:
     with engine.begin() as conn:
-        conn.execute(
-            text("INSERT INTO clues (text, type, difficulty, answer, definition, transformation, author) "
-                 "VALUES (:text, :type, :difficulty, :answer, :definition, :transformation, :author)"),
+        clue_id = conn.execute(
+            text("INSERT INTO clues (text, difficulty, answer, definition, transformation, author) "
+                 "VALUES (:text, :difficulty, :answer, :definition, :transformation, :author)"),
             {
                 "text": clue_text,
-                "type": clue_type,
                 "difficulty": clue_difficulty,
                 "answer": answer,
                 "definition": definition,
                 "transformation": transformation,
                 "author": author,
             },
-        )
+        ).fetchone()[0]
+        for tag in tags:
+            conn.execute(
+                text("INSERT INTO clue_tags (clue_id, type) "
+                     "VALUES (:clue_id, :type)"),
+                     {
+                         "clue_id" : clue_id,
+                         "type": tag,
+                     }
+            )
 
-def insert_submission(engine: Engine, clue_text: str, clue_type: str, answer: str, definition: str, transformation: str, author: str, user: User) -> None:
+def insert_submission(engine: Engine, clue_text: str, tags: list, answer: str, definition: str, transformation: str, author: str, user: User) -> None:
     if author.strip() == '':
         author = 'Anonymous'
 
     with engine.begin() as conn:
-        conn.execute(
-            text("INSERT INTO submissions (text, type, answer, definition, transformation, author, submitter_id) "
-                 "VALUES (:text, :type, :answer, :definition, :transformation, :author, :submitter_id)"),
+        submission_id = conn.execute(
+            text("INSERT INTO submissions (text, answer, definition, transformation, author, submitter_id) "
+                 "VALUES (:text, :answer, :definition, :transformation, :author, :submitter_id) "
+                 "RETURNING id"),
             {
                 "text": clue_text,
-                "type": clue_type,
                 "answer": answer,
                 "definition": definition,
                 "transformation": transformation,
                 "author": author,
                 "submitter_id": user.get_id(),
             },
-        )
+        ).fetchone()[0]
+        for tag in tags:
+            conn.execute(
+                text("INSERT INTO submission_tags (submission_id, type) "
+                     "VALUES (:submission_id, :type)"),
+                     {
+                         "submission_id" : submission_id,
+                         "type": tag,
+                     }
+            )
+
+def get_submission_tags(engine: Engine, submission_id):
+    if submission_id is None:
+        return []
+    with engine.begin() as conn:
+        rows = conn.execute(
+            text("SELECT DISTINCT type FROM submission_tags WHERE submission_id = :submission_id"),
+            {
+                "submission_id": submission_id,
+            }
+        ).fetchall()
+    return [row[0] for row in rows]
 
 def delete_submission(engine: Engine, submission_id):
     with engine.begin() as conn:
@@ -61,30 +103,47 @@ def delete_submission(engine: Engine, submission_id):
                 "id": submission_id,
             },
         )
+        conn.execute(
+            text("DELETE FROM submission_tags WHERE submission_id = :id"),
+            {
+                "id": submission_id,
+            },
+        )
+
+def parse_tags(raw) -> list:
+    """Split a CSV 'tags' cell into a list of tag strings. Tags are
+    comma-separated, e.g. "Anagram, Hidden clue"."""
+    if raw is None or pd.isna(raw):
+        return []
+    return [tag.strip() for tag in str(raw).split(",") if tag.strip()]
 
 def import_clues_from_df(engine: Engine, df: pd.DataFrame) -> int:
-    rows = [
-        {
-            "text": row["text"],
-            "type": row["type"],
-            "difficulty": row["difficulty"],
-            "answer": row["answer"],
-            "definition": row["definition"],
-            "transformation": row["transformation"],
-        }
-        for _, row in df.iterrows()
-    ]
-    if rows:
-        with engine.begin() as conn:
-            conn.execute(
-                text("INSERT INTO clues (text, type, difficulty, answer, definition, transformation) "
-                     "VALUES (:text, :type, :difficulty, :answer, :definition, :transformation)"),
-                rows,
-            )
-    return len(rows)
-
-def initial_setup(engine: Engine) -> None:
-    create_database(engine)
+    count = 0
+    with engine.begin() as conn:
+        for _, row in df.iterrows():
+            clue_id = conn.execute(
+                text("INSERT INTO clues (text, difficulty, answer, definition, transformation) "
+                     "VALUES (:text, :difficulty, :answer, :definition, :transformation) "
+                     "RETURNING id"),
+                {
+                    "text": row["text"],
+                    "difficulty": row["difficulty"],
+                    "answer": row["answer"],
+                    "definition": row["definition"],
+                    "transformation": row["transformation"],
+                },
+            ).fetchone()[0]
+            for tag in parse_tags(row["tags"]):
+                conn.execute(
+                    text("INSERT INTO clue_tags (clue_id, type) "
+                         "VALUES (:clue_id, :type)"),
+                    {
+                        "clue_id": clue_id,
+                        "type": tag,
+                    },
+                )
+            count += 1
+    return count
 
 def select_random_clue(df: pd.DataFrame, exclude_ids=None) -> pd.DataFrame:
     pool = df
@@ -122,14 +181,17 @@ def log_attempt(engine: Engine, attempt, clue, user: User):
 # excluded from the cache key. Call the matching clear_* helper after any write.
 
 @st.cache_data(ttl=CACHE_TTL)
-def clues_table_exists(_engine: Engine) -> bool:
-    return pd.read_sql(
-        "SELECT to_regclass('public.clues') IS NOT NULL AS exists", _engine
-    ).iloc[0]["exists"]
-
-@st.cache_data(ttl=CACHE_TTL)
 def get_all_clues(_engine: Engine) -> pd.DataFrame:
-    return pd.read_sql("SELECT * FROM clues", _engine)
+    # Aggregate each clue's tags (from clue_tags) into a single comma-separated
+    # 'tags' column so the trainer/tutor can read them without a second query.
+    return pd.read_sql(
+        "SELECT c.*, "
+        "COALESCE(string_agg(ct.type, ', ' ORDER BY ct.type), '') AS tags "
+        "FROM clues c "
+        "LEFT JOIN clue_tags ct ON ct.clue_id = c.id "
+        "GROUP BY c.id",
+        _engine,
+    )
 
 @st.cache_data(ttl=CACHE_TTL)
 def get_all_submissions(_engine: Engine) -> pd.DataFrame:
@@ -173,7 +235,6 @@ def calc_clues_solved(engine: Engine, user: User):
 
 def clear_clue_caches():
     get_all_clues.clear()
-    clues_table_exists.clear()
 
 def clear_submission_caches():
     get_all_submissions.clear()

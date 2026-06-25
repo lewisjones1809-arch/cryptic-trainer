@@ -11,10 +11,16 @@
 - [x] Log attempts
 - [x] Saved stats
 - [x] No duplicate clues
+- [ ] Increase DB size to 50 clues
+- [x] User clue submissions
+- [x] Import submissions into database
+- [x] Separate types out into tags
+- [ ] Edit clues
+
+## v3
 - [ ] Tailored training based on clue types user has struggled with
 - [ ] Allow user to pick clues by type and difficulty
 - [ ] Database restructure to significantly improve AI Helper performance
-- [ ] Increase DB size to 50 clues
 - [ ] HTML/CSS Front End
 
 ## Polish

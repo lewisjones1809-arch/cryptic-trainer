@@ -2,10 +2,10 @@ from sqlalchemy import text
 from sqlalchemy.engine import Engine
 
 class Clue:
-    def __init__(self, id, text, type, difficulty, answer, definition, transformation):
+    def __init__(self, id, text, tags, difficulty, answer, definition, transformation):
         self.id = id
         self.text = text
-        self.type = type
+        self.tags = tags
         self.difficulty = difficulty
         self.answer = answer
         self.definition = definition

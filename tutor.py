@@ -171,7 +171,7 @@ def build_context(clue_row) -> str:
     answer = clue_row['answer']
     return (f"CLUE: {clue_row['text']}\n"
             f"ENUMERATION: ({len(answer.replace(' ', ''))})\n"
-            f"TYPE (reference only): {clue_row['type']}\n"
+            f"TYPE(S) (reference only): {clue_row['tags']}\n"
             f"DIFFICULTY: {clue_row['difficulty']}/5\n"
             f"DEFINITION part (reference only, this is the TRUE split — never reveal, "
             f"but use it to correct the solver if they mis-identify it): "
