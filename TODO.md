@@ -11,11 +11,11 @@
 - [x] Log attempts
 - [x] Saved stats
 - [x] No duplicate clues
-- [ ] Increase DB size to 50 clues
 - [x] User clue submissions
 - [x] Import submissions into database
 - [x] Separate types out into tags
 - [x] Edit clues
+- [x] Directly add clues for Admins
 
 ## v3
 - [ ] Tailored training based on clue types user has struggled with
@@ -24,3 +24,4 @@
 - [ ] HTML/CSS Front End
 
 ## Polish
+- [ ] Crowsource more clues
