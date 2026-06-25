@@ -6,12 +6,12 @@ from functions import is_admin
 # and only include the admin page for admins. The admin page still guards itself
 # — hiding the link is cosmetic, not a security boundary.
 trainer = st.Page("views/trainer.py", title="Trainer", default=True)
-settings = st.Page("views/settings.py", title="Settings")
 stats = st.Page("views/stats.py", title="My Stats")
 submit = st.Page("views/submit.py", title="Submit a Clue")
+settings = st.Page("views/settings.py", title="Settings")
 admin = st.Page("views/admin.py", title="Admin Panel")
 
-pages = [trainer, settings, stats, submit]
+pages = [trainer, stats, submit, settings]
 if is_admin():
     pages.append(admin)
 

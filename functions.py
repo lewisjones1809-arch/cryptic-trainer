@@ -40,6 +40,10 @@ MAX_DEFINITION_CHARS = 100
 MAX_TRANSFORMATION_CHARS = 1000
 MAX_AUTHOR_CHARS = 50
 
+# Caps for the bug-report form (settings page).
+MAX_BUG_DESC_CHARS = 500
+MAX_BUG_STEPS_CHARS = 1000
+
 def validate_clue_lengths(clue_text: str, answer: str, definition: str, transformation: str, author: str) -> None:
     """Raise ValueError with a user-friendly message if any field exceeds its cap.
     Call before any clue/submission INSERT so the widget cap can't be bypassed."""
@@ -303,6 +307,33 @@ def submit_feedback(engine: Engine, clue_id, user_id, rating) -> None:
             },
         )
 
+def report_bug(engine: Engine, desc: str, steps: str, user_id) -> None:
+    """Store a user bug report. `desc` is required (the caller checks it is
+    non-empty); `steps` is optional. Raises ValueError if a field exceeds its cap."""
+    if len(desc) > MAX_BUG_DESC_CHARS:
+        raise ValueError(f'Description is too long (max {MAX_BUG_DESC_CHARS} characters).')
+    if steps is not None and len(steps) > MAX_BUG_STEPS_CHARS:
+        raise ValueError(f'Steps is too long (max {MAX_BUG_STEPS_CHARS} characters).')
+    with engine.begin() as conn:
+        conn.execute(
+            text("INSERT INTO bug_reports (bug_description, steps_to_replicate, user_id) "
+                 "VALUES (:desc, :steps, :user_id)"),
+            {
+                "desc": desc,
+                "steps": steps,
+                "user_id": user_id,
+            }
+        )
+
+def delete_bug(engine: Engine, bug_id):
+    with engine.begin() as conn:
+        conn.execute(
+            text("DELETE FROM bug_reports WHERE id = :id"),
+            {
+                "id": bug_id,
+            },
+        )
+
 # --- Cached reads -----------------------------------------------------------
 # These are cached globally (per server process) and keyed only by hashable
 # args; the SQLAlchemy engine is passed as a leading-underscore param so it is
@@ -323,7 +354,27 @@ def get_all_clues(_engine: Engine) -> pd.DataFrame:
 
 @st.cache_data(ttl=CACHE_TTL)
 def get_all_submissions(_engine: Engine) -> pd.DataFrame:
-    return pd.read_sql("SELECT * FROM submissions", _engine)
+    # Aggregate each submission's tags (from submission_tags) into one
+    # comma-separated 'tags' column, mirroring get_all_clues.
+    return pd.read_sql(
+        "SELECT s.*, "
+        "COALESCE(string_agg(stg.type, ', ' ORDER BY stg.type), '') AS tags "
+        "FROM submissions s "
+        "LEFT JOIN submission_tags stg ON stg.submission_id = s.id "
+        "GROUP BY s.id",
+        _engine,
+    )
+
+@st.cache_data(ttl=CACHE_TTL)
+def get_all_bugs(_engine: Engine) -> pd.DataFrame:
+    # Join the reporter so admins can follow up. LEFT JOIN so a report still
+    # shows even if the user record is somehow missing.
+    return pd.read_sql(
+        "SELECT b.*, u.name AS reporter_name, u.email AS reporter_email "
+        "FROM bug_reports b "
+        "LEFT JOIN users u ON u.id = b.user_id",
+        _engine,
+    )
 
 @st.cache_data(ttl=CACHE_TTL)
 def get_clues_seen(_engine: Engine, user_id):
@@ -370,3 +421,6 @@ def clear_submission_caches():
 def clear_progress_caches():
     get_clues_seen.clear()
     get_clues_solved.clear()
+
+def clear_bug_caches():
+    get_all_bugs.clear()

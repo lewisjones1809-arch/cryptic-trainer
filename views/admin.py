@@ -5,7 +5,8 @@ from functions import (
     get_all_submissions, clear_clue_caches, clear_submission_caches, get_submission_tags,
     CLUE_TYPES, get_all_clues, get_clue_tags, update_clue,
     MAX_CLUE_CHARS, MAX_ANSWER_CHARS, MAX_DEFINITION_CHARS,
-    MAX_TRANSFORMATION_CHARS, MAX_AUTHOR_CHARS, is_admin,
+    MAX_TRANSFORMATION_CHARS, MAX_AUTHOR_CHARS, is_admin, get_all_bugs, delete_bug,
+    clear_bug_caches,
 )
 
 st.title('Admin Panel')
@@ -24,7 +25,7 @@ if not is_admin():
     st.error("You don't have access to this page.")
     st.stop()
 
-mode = st.selectbox('Select Task', ['Review Submissions', 'Add Clues', 'Edit Clues', 'Import CSV'])    
+mode = st.selectbox('Select Task', ['Review Submissions', 'Add Clues', 'Edit Clues', 'Import CSV', 'View Bugs'])    
 
 submissions = get_all_submissions(con.engine)
 
@@ -32,6 +33,9 @@ def load_submission_tags(submission):
     if submission is None:
         return []
     return get_submission_tags(con.engine, submission['id'])
+
+def _txt(df, col):
+    return df[col].astype('string[python]').fillna('')
 
 if 'submission' not in st.session_state:
     st.session_state.submission = select_oldest_submission(submissions)
@@ -198,6 +202,42 @@ if mode == 'Add Clues':
                 st.error(str(e))
             except Exception:
                 st.error('Something went wrong adding the clue. Please try again.')
+
+if mode == 'View Bugs':
+
+    bugs = get_all_bugs(con.engine)
+
+    if bugs.empty:
+        st.info('No bug reports. 🎉')
+    else:
+        ordered = bugs.sort_values(by='reported_at', ascending=True).reset_index(drop=True)
+        # Short, unique label for the dropdown ('id' is unique); full text below.
+        ordered['display'] = 'id ' + _txt(ordered, 'id') + ': ' + _txt(ordered, 'bug_description').str.slice(0, 60)
+
+        picked_bug = st.selectbox('Choose bug to view', options=ordered['display'])
+        displayed_bug = ordered[ordered['display'] == picked_bug].iloc[0]
+
+        steps_val = displayed_bug['steps_to_replicate']
+        steps_val = '—' if pd.isna(steps_val) or str(steps_val).strip() == '' else steps_val
+
+        email = displayed_bug['reporter_email']
+        name = displayed_bug['reporter_name']
+        reporter = email if not pd.isna(email) else 'Unknown'
+        if not pd.isna(name):
+            reporter = f"{name} ({reporter})"
+
+        st.write(f"Description: {displayed_bug['bug_description']}")
+        st.write(f"Steps to replicate: {steps_val}")
+        st.write(f"Reported by: {reporter}")
+
+        if st.button('Delete Bug'):
+            try:
+                delete_bug(con.engine, int(displayed_bug['id']))
+                clear_bug_caches()
+                st.success('Bug deleted')
+                st.rerun()
+            except Exception:
+                st.error('Something went wrong deleting the bug. Please try again.')
 
 if st.button("Log out"):
     st.logout()
