@@ -1,9 +1,17 @@
 import streamlit as st
-from functions import insert_submission, clear_submission_caches, CLUE_TYPES
+from functions import insert_submission, clear_submission_caches, CLUE_TYPES, get_current_user
 
 con = st.connection("postgres", type="sql")
 
 st.title('Submit a Clue')
+
+if not st.user.is_logged_in:
+    st.write("Please log in to continue.")
+    if st.button("Log in with Google"):
+        st.login()
+    st.stop()
+
+user = get_current_user(con.engine)
 
 with st.form("Submit a Clue", clear_on_submit=True, enter_to_submit=False):
     
@@ -25,7 +33,7 @@ if clue_submit:
     if not clue_text.strip() or not tags or not answer.strip() or not definition.strip() or not transformation.strip():
         st.error('Please fill in all required fields')
     else:
-        insert_submission(con.engine, clue_text, tags, answer, definition, transformation, author, st.session_state.user)
+        insert_submission(con.engine, clue_text, tags, answer, definition, transformation, author, user)
         clear_submission_caches()
         st.success('Thank you for your submission')
 

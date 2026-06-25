@@ -1,6 +1,6 @@
 import streamlit as st
 import pandas as pd
-from functions import calc_clues_seen, calc_clues_solved
+from functions import calc_clues_seen, calc_clues_solved, get_current_user
 
 con = st.connection("postgres", type="sql")
 
@@ -12,6 +12,8 @@ if not st.user.is_logged_in:
         st.login()
     st.stop()
 
+user = get_current_user(con.engine)
+
 left, right = st.columns(2)
-left.metric('Clues Tried', calc_clues_seen(con.engine, st.session_state.user))
-right.metric('Clues Solved', calc_clues_solved(con.engine, st.session_state.user))
+left.metric('Clues Tried', calc_clues_seen(con.engine, user))
+right.metric('Clues Solved', calc_clues_solved(con.engine, user))

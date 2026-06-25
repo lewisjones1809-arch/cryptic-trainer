@@ -1,9 +1,8 @@
-from functions import select_random_clue, format_enumeration, log_attempt, get_clues_solved, get_all_clues, clear_progress_caches
+from functions import select_random_clue, format_enumeration, log_attempt, get_clues_solved, get_all_clues, clear_progress_caches, get_current_user
 from tutor import get_tutor_reply
 import pandas as pd
 import streamlit as st
 import time
-from classes import User
 
 st.title("Cryptic Trainer")
 
@@ -15,10 +14,7 @@ if not st.user.is_logged_in:
 
 con = st.connection("postgres", type="sql")
 
-if "user" not in st.session_state:
-        user = User(st.user.sub, st.user.email, st.user.name)
-        user.write_user(con.engine)       
-        st.session_state.user = user 
+get_current_user(con.engine)
 
 clues = get_all_clues(con.engine)
 

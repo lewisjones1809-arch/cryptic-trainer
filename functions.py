@@ -31,6 +31,18 @@ CLUE_TYPES = [
     'Wordplay',
 ]
 
+def get_current_user(engine: Engine) -> User:
+    """Ensure the logged-in user is loaded into session_state (and persisted to
+    the DB), creating it on first access. Call this on every page after the
+    login check so any page works as the entry point — not just Trainer.py.
+    A redeploy can reconnect the browser straight to a deep-linked page, so no
+    page may assume Trainer.py has already run."""
+    if "user" not in st.session_state:
+        user = User(st.user.sub, st.user.email, st.user.name)
+        user.write_user(engine)
+        st.session_state.user = user
+    return st.session_state.user
+
 def create_clue(engine: Engine, clue_text: str, tags: list, clue_difficulty: int, answer: str, definition: str, transformation: str, author: str) -> None:
     with engine.begin() as conn:
         clue_id = conn.execute(
