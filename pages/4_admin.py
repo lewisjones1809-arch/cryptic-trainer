@@ -1,6 +1,6 @@
 import streamlit as st
 import pandas as pd
-from functions import import_clues_from_df, select_oldest_submission, create_clue, delete_submission, get_all_submissions, clear_clue_caches, clear_submission_caches, get_submission_tags, CLUE_TYPES
+from functions import import_clues_from_df, select_oldest_submission, create_clue, delete_submission, get_all_submissions, clear_clue_caches, clear_submission_caches, get_submission_tags, CLUE_TYPES, get_all_clues, get_clue_tags, update_clue
 
 st.title('Admin Panel')
 
@@ -59,6 +59,41 @@ if clue_csv is not None:
         clear_clue_caches()
         status.update(label="Import complete!", state="complete")
         st.success(f"Imported {counter} clues")
+
+difficulties = [1,2,3,4,5]
+clues = get_all_clues(con.engine)
+picked_clue_text = st.selectbox('Edit clue', options=clues['text'], index=None)
+
+if picked_clue_text is not None:
+    picked_clue = clues[clues['text'] == picked_clue_text].iloc[0]
+    picked_clue_id = picked_clue['id']
+    picked_clue_tags = get_clue_tags(con.engine, picked_clue_id)
+    picked_clue_difficulty_index = difficulties.index(picked_clue['difficulty'])
+
+    with st.form("Edit clue", clear_on_submit=True, enter_to_submit=False):
+    
+        st.write('Fields marked with a * are required for submission')
+
+        edit_text = st.text_input('Clue*', value=picked_clue_text)
+
+        edit_tags = st.multiselect('Type*', options=CLUE_TYPES, default=picked_clue_tags)
+        
+        edit_answer = st.text_input('Answer*', value=picked_clue['answer'])
+        edit_definition = st.text_input('Definition*', value=picked_clue['definition'])
+
+        edit_transformation = st.text_input('Transformation*', value=picked_clue['transformation'])
+        edit_author = st.text_input('Author', value=picked_clue['author'])
+        edit_difficulty = st.selectbox('Difficulty*', options=[1,2,3,4,5], index=picked_clue_difficulty_index)
+
+        edit_submit = st.form_submit_button('Make Edits', use_container_width=True)
+
+    if edit_submit:
+        if not edit_text.strip() or not edit_tags or not edit_answer.strip() or not edit_definition.strip() or not edit_transformation.strip() or not edit_difficulty:
+            st.error('Please fill in all required fields')
+        else:
+            update_clue(con.engine, picked_clue_id, edit_text, edit_tags, edit_difficulty, edit_answer, edit_definition, edit_transformation, edit_author)
+            st.success('Edit successful')
+            st.rerun()
 
 if st.button('Refresh Submissions'):
     clear_submission_caches()

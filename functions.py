@@ -35,7 +35,8 @@ def create_clue(engine: Engine, clue_text: str, tags: list, clue_difficulty: int
     with engine.begin() as conn:
         clue_id = conn.execute(
             text("INSERT INTO clues (text, difficulty, answer, definition, transformation, author) "
-                 "VALUES (:text, :difficulty, :answer, :definition, :transformation, :author)"),
+                 "VALUES (:text, :difficulty, :answer, :definition, :transformation, :author) " \
+                 "RETURNING id"),
             {
                 "text": clue_text,
                 "difficulty": clue_difficulty,
@@ -50,10 +51,66 @@ def create_clue(engine: Engine, clue_text: str, tags: list, clue_difficulty: int
                 text("INSERT INTO clue_tags (clue_id, type) "
                      "VALUES (:clue_id, :type)"),
                      {
-                         "clue_id" : clue_id,
+                         "clue_id" : int(clue_id),
                          "type": tag,
                      }
             )
+
+def update_clue(engine: Engine, clue_id, clue_text: str, tags: list, clue_difficulty: int, answer: str, definition: str, transformation: str, author: str) -> None:
+    with engine.begin() as conn:
+        conn.execute(
+            text("UPDATE clues "
+                 "SET text = :text, difficulty = :difficulty, answer = :answer, definition = :definition, transformation = :transformation, author = :author "
+                 "WHERE id = :id"),
+            {
+                "text": clue_text,
+                "difficulty": clue_difficulty,
+                "answer": answer,
+                "definition": definition,
+                "transformation": transformation,
+                "author": author,
+                "id": int(clue_id)
+            },
+        )
+        rows = conn.execute(
+            text("SELECT DISTINCT type FROM clue_tags WHERE clue_id = :id"),
+            {
+                "id" : int(clue_id)
+            }
+            ).fetchall()
+        current_tags = [r[0] for r in rows]
+        new_tags = [tag for tag in tags if tag not in current_tags]
+        removed_tags = [tag for tag in current_tags if tag not in tags]
+        for tag in new_tags:
+            conn.execute(
+                text("INSERT INTO clue_tags (clue_id, type) "
+                     "VALUES (:clue_id, :type)"),
+                     {
+                         "clue_id" : int(clue_id),
+                         "type": tag,
+                     }
+            )
+        for tag in removed_tags:
+            conn.execute(
+                text("DELETE FROM clue_tags "
+                     "WHERE clue_id = :clue_id AND type = :type"),
+                     {
+                         "clue_id" : int(clue_id),
+                         "type": tag,
+                     }
+            )
+
+def get_clue_tags(engine: Engine, clue_id):
+    if clue_id is None:
+        return []
+    with engine.begin() as conn:
+        rows = conn.execute(
+            text("SELECT DISTINCT type FROM clue_tags WHERE clue_id = :clue_id"),
+            {
+                "clue_id": clue_id,
+            }
+        ).fetchall()
+    return [row[0] for row in rows]
 
 def insert_submission(engine: Engine, clue_text: str, tags: list, answer: str, definition: str, transformation: str, author: str, user: User) -> None:
     if author.strip() == '':
