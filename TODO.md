@@ -9,7 +9,8 @@
 - [x] User system with google login
 - [x] Migrate to postgres
 - [x] Log attempts
-- [ ] Saved stats
+- [x] Saved stats
+- [x] No duplicate clues
 - [ ] Tailored training based on clue types user has struggled with
 - [ ] Allow user to pick clues by type and difficulty
 - [ ] Database restructure to significantly improve AI Helper performance
