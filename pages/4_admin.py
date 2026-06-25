@@ -92,6 +92,7 @@ if picked_clue_text is not None:
             st.error('Please fill in all required fields')
         else:
             update_clue(con.engine, picked_clue_id, edit_text, edit_tags, edit_difficulty, edit_answer, edit_definition, edit_transformation, edit_author)
+            clear_clue_caches()
             st.success('Edit successful')
             st.rerun()
 

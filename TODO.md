@@ -15,7 +15,7 @@
 - [x] User clue submissions
 - [x] Import submissions into database
 - [x] Separate types out into tags
-- [ ] Edit clues
+- [x] Edit clues
 
 ## v3
 - [ ] Tailored training based on clue types user has struggled with
