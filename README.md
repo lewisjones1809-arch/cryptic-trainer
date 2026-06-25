@@ -4,7 +4,7 @@ LIVE v2 STREAMLIT LINK: https://cryptictrainer.streamlit.app
 
 A full-stack cryptic crossword trainer with 10 clues. This app is designed to help players answer cryptic crossword clues. To do this, an AI Helper has been created that uses the socratic method to nudge the user in the right direction instead of simply giving them the answers.
 
-![Clue](screenshots/clue.png)
+![Front](screenshots/front.png)
 ![Submit](screenshots/submit.png)
 ![Bug](screenshots/bug.png)
 
