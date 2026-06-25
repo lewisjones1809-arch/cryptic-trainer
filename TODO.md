@@ -16,6 +16,8 @@
 - [x] Separate types out into tags
 - [x] Edit clues
 - [x] Directly add clues for Admins
+- [x] Add anonymous play
+- [x] Improve security/validation
 
 ## v3
 - [ ] Tailored training based on clue types user has struggled with

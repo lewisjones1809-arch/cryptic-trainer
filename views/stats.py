@@ -14,6 +14,13 @@ if not st.user.is_logged_in:
 
 user = get_current_user(con.engine)
 
+try:
+    clues_tried = calc_clues_seen(con.engine, user)
+    clues_solved = calc_clues_solved(con.engine, user)
+except Exception:
+    st.error('Something went wrong loading your stats. Please refresh and try again.')
+    st.stop()
+
 left, right = st.columns(2)
-left.metric('Clues Tried', calc_clues_seen(con.engine, user))
-right.metric('Clues Solved', calc_clues_solved(con.engine, user))
+left.metric('Clues Tried', clues_tried)
+right.metric('Clues Solved', clues_solved)

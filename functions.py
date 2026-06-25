@@ -31,6 +31,38 @@ CLUE_TYPES = [
     'Wordplay',
 ]
 
+# Maximum accepted length (characters) per free-text field. Enforced both in the
+# UI (max_chars on the widgets) and server-side here, so no path can bloat the DB
+# or break display with pasted walls of text. Single source of truth.
+MAX_CLUE_CHARS = 200
+MAX_ANSWER_CHARS = 50
+MAX_DEFINITION_CHARS = 100
+MAX_TRANSFORMATION_CHARS = 1000
+MAX_AUTHOR_CHARS = 50
+
+def validate_clue_lengths(clue_text: str, answer: str, definition: str, transformation: str, author: str) -> None:
+    """Raise ValueError with a user-friendly message if any field exceeds its cap.
+    Call before any clue/submission INSERT so the widget cap can't be bypassed."""
+    checks = [
+        ('Clue', clue_text, MAX_CLUE_CHARS),
+        ('Answer', answer, MAX_ANSWER_CHARS),
+        ('Definition', definition, MAX_DEFINITION_CHARS),
+        ('Transformation', transformation, MAX_TRANSFORMATION_CHARS),
+        ('Author', author, MAX_AUTHOR_CHARS),
+    ]
+    for name, value, limit in checks:
+        if value is not None and len(value) > limit:
+            raise ValueError(f'{name} is too long (max {limit} characters).')
+
+# Google OAuth `sub` ids allowed into the admin panel. Single source of truth,
+# used both to gate the admin page and to decide whether to show it in the nav.
+ADMIN_SUBS = {"103952720962717707431"}   # or your email
+
+def is_admin() -> bool:
+    """True only for a logged-in user on the admin allowlist. Used to hide the
+    admin page from the sidebar; the page itself must still guard access."""
+    return bool(st.user.is_logged_in) and st.user.sub in ADMIN_SUBS
+
 def get_current_user(engine: Engine) -> User:
     """Ensure the logged-in user is loaded into session_state (and persisted to
     the DB), creating it on first access. Call this on every page after the
@@ -44,6 +76,7 @@ def get_current_user(engine: Engine) -> User:
     return st.session_state.user
 
 def create_clue(engine: Engine, clue_text: str, tags: list, clue_difficulty: int, answer: str, definition: str, transformation: str, author: str) -> None:
+    validate_clue_lengths(clue_text, answer, definition, transformation, author)
     with engine.begin() as conn:
         clue_id = conn.execute(
             text("INSERT INTO clues (text, difficulty, answer, definition, transformation, author) "
@@ -125,6 +158,7 @@ def get_clue_tags(engine: Engine, clue_id):
     return [row[0] for row in rows]
 
 def insert_submission(engine: Engine, clue_text: str, tags: list, answer: str, definition: str, transformation: str, author: str, user: User) -> None:
+    validate_clue_lengths(clue_text, answer, definition, transformation, author)
     if author.strip() == '':
         author = 'Anonymous'
 
