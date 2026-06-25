@@ -244,6 +244,31 @@ def log_attempt(engine: Engine, attempt, clue, user: User):
             }
         )
 
+def has_feedback(engine: Engine, clue_id, user_id) -> bool:
+    """True if this user has already rated this clue (one rating per clue/user)."""
+    with engine.begin() as conn:
+        row = conn.execute(
+            text("SELECT 1 FROM feedback "
+                 "WHERE clue_id = :clue_id AND user_id = :user_id LIMIT 1"),
+            {
+                "clue_id": int(clue_id),
+                "user_id": user_id,
+            },
+        ).fetchone()
+    return row is not None
+
+def submit_feedback(engine: Engine, clue_id, user_id, rating) -> None:
+    with engine.begin() as conn:
+        conn.execute(
+            text("INSERT INTO feedback (clue_id, user_id, rating) "
+                 "VALUES (:clue_id, :user_id, :rating)"),
+            {
+                "clue_id": int(clue_id),
+                "user_id": user_id,
+                "rating": int(rating),
+            },
+        )
+
 # --- Cached reads -----------------------------------------------------------
 # These are cached globally (per server process) and keyed only by hashable
 # args; the SQLAlchemy engine is passed as a leading-underscore param so it is

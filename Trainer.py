@@ -1,4 +1,4 @@
-from functions import select_random_clue, format_enumeration, log_attempt, get_clues_solved, get_all_clues, clear_progress_caches, get_current_user
+from functions import select_random_clue, format_enumeration, log_attempt, get_clues_solved, get_all_clues, clear_progress_caches, get_current_user, has_feedback, submit_feedback
 from tutor import get_tutor_reply
 import pandas as pd
 import streamlit as st
@@ -73,6 +73,24 @@ if st.button('Submit Answer', on_click=on_guess):
     else:
         st.error('Incorrect!')
 
+# Rating UI persists across reruns (so the star + submit interaction survives),
+# keyed on whether the displayed clue has been solved rather than the transient
+# Submit Answer click.
+clue_id = int(clue['id'].iloc[0])
+user_id = st.session_state.user.get_id()
+
+if clue_id in solved_ids:
+    if has_feedback(con.engine, clue_id, user_id):
+        st.write('Thank you for submitting your feedback!')
+    else:
+        st.write('Rate this clue:')
+        rate_col, button_col = st.columns([2, 5], vertical_alignment='center')
+        stars = rate_col.feedback('stars', key=f'rating_{clue_id}')
+        # Button only appears once a star is selected, and only submits then.
+        if stars is not None and button_col.button('Submit Rating', key=f'submit_rating_{clue_id}'):
+            submit_feedback(con.engine, clue_id, user_id, stars + 1)
+            st.rerun()
+
 if st.button('New Clue', on_click=on_click):
     current_id = st.session_state.clue['id'].iloc[0]
     st.session_state.clue = select_random_clue(clues, exclude_ids=solved_ids | {current_id})
@@ -107,5 +125,7 @@ if unlocked:
         st.session_state.tutor_history.append({'role': 'model', 'text': reply})
         with st.chat_message('assistant'):
             st.write(reply)
-
+else:
+    st.divider()
+    st.subheader('Keep trying to unlock the AI Helper')
 
