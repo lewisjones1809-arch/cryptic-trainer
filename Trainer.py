@@ -15,4 +15,19 @@ pages = [trainer, stats, submit, settings]
 if is_admin():
     pages.append(admin)
 
-st.navigation(pages).run()
+nav = st.navigation(pages)
+
+# Optional login lives at the bottom of the sidebar, under the nav. Purely additive —
+# the trainer plays anonymously without it; logging in just saves progress and unlocks
+# rating, submitting, stats, and the AI Helper.
+with st.sidebar:
+    st.divider()
+    if st.user.is_logged_in:
+        st.caption(f"Logged in as {st.user.name}")
+        if st.button("Log out"):
+            st.logout()
+    else:
+        if st.button("Log in with Google"):
+            st.login()
+
+nav.run()
