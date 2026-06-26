@@ -1,7 +1,8 @@
 import streamlit as st
 import pandas as pd
 from functions import (
-    import_clues_from_df, select_oldest_submission, create_clue, delete_submission,
+    import_clues_with_tags, CLUES_CSV_COLUMNS, CLUE_TAGS_CSV_COLUMNS,
+    select_oldest_submission, create_clue, delete_submission,
     get_all_submissions, clear_clue_caches, clear_submission_caches, get_submission_tags,
     CLUE_TYPES, get_all_clues, get_clue_tags, update_clue,
     MAX_CLUE_CHARS, MAX_ANSWER_CHARS, MAX_DEFINITION_CHARS,
@@ -42,32 +43,50 @@ if 'submission' not in st.session_state:
     st.session_state.tags = load_submission_tags(st.session_state.submission)
 
 if mode == 'Import CSV':
-    clue_csv = st.file_uploader('Import Clues', type='.csv')
+    st.write('Upload the clues and clue-tags CSVs (as exported from the database). '
+             'Clue ids are preserved so the tags link up correctly.')
 
-    if clue_csv is not None:
-        df = pd.read_csv(clue_csv)
-        required = {'text', 'tags', 'difficulty', 'answer', 'definition', 'transformation'}
+    clues_csv = st.file_uploader('Clues CSV', type='csv', key='clues_csv')
+    tags_csv = st.file_uploader('Clue tags CSV', type='csv', key='tags_csv')
 
-        if not required.issubset(df.columns):
-            st.error(f'CSV missing columns: {required - set(df.columns)}')
+    clues_df = None
+    tags_df = None
+
+    if clues_csv is not None:
+        clues_df = pd.read_csv(clues_csv)
+        missing = CLUES_CSV_COLUMNS - set(clues_df.columns)
+        if missing:
+            st.error(f'Clues CSV missing columns: {missing}')
+            clues_df = None
         else:
-            st.write(f'Found {len(df)} clues')
+            st.write(f'Found {len(clues_df)} clues')
 
-        if st.button('Import'):
-            with st.status("Importing...", expanded=True) as status:
-                def set_status(msg):
-                    status.update(label=msg)
-                    status.write(msg)
+    if tags_csv is not None:
+        tags_df = pd.read_csv(tags_csv)
+        missing = CLUE_TAGS_CSV_COLUMNS - set(tags_df.columns)
+        if missing:
+            st.error(f'Clue tags CSV missing columns: {missing}')
+            tags_df = None
+        else:
+            st.write(f'Found {len(tags_df)} clue tags')
 
-            bar = st.progress(0.0)
-
-            def row_progress(fraction):
-                bar.progress(fraction)
-        
-            counter = import_clues_from_df(con.engine, df)
-            clear_clue_caches()
-            status.update(label="Import complete!", state="complete")
-            st.success(f"Imported {counter} clues")
+    ready = clues_df is not None and tags_df is not None
+    if ready and st.button('Import'):
+        with st.status("Importing...", expanded=True) as status:
+            try:
+                result = import_clues_with_tags(con.engine, clues_df, tags_df)
+                clear_clue_caches()
+                status.update(label="Import complete!", state="complete")
+                msg = f"Imported {result['clues']} clues and {result['tags']} tags"
+                if result['tags_skipped']:
+                    msg += f" ({result['tags_skipped']} tags skipped — no matching clue)"
+                st.success(msg)
+            except ValueError as e:
+                status.update(label="Import failed", state="error")
+                st.error(str(e))
+            except Exception:
+                status.update(label="Import failed", state="error")
+                st.error('Something went wrong importing. Please check the CSVs and try again.')
 
 if mode == 'Edit Clues':
     difficulties = [1,2,3,4,5]

@@ -42,6 +42,12 @@ except Exception:
     st.error('Something went wrong loading the clues. Please refresh and try again.')
     st.stop()
 
+# No clues in the pool yet (e.g. a freshly reset DB). Show a friendly empty state
+# instead of crashing when we try to pick a random clue.
+if len(clues) == 0:
+    st.info('No clues are available yet. Please check back soon!')
+    st.stop()
+
 # Pick an initial clue once and keep it in session state so it survives reruns
 if 'clue' not in st.session_state:
     st.session_state.clue = select_random_clue(clues, exclude_ids=solved_ids)

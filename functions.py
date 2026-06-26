@@ -217,40 +217,75 @@ def delete_submission(engine: Engine, submission_id):
             },
         )
 
-def parse_tags(raw) -> list:
-    """Split a CSV 'tags' cell into a list of tag strings. Tags are
-    comma-separated, e.g. "Anagram, Hidden clue"."""
-    if raw is None or pd.isna(raw):
-        return []
-    return [tag.strip() for tag in str(raw).split(",") if tag.strip()]
+def _cell(row, col) -> str:
+    """Read a DataFrame cell as a clean string, mapping NaN/None to ''. Used by
+    the CSV importer so blank cells don't reach the DB or len() as floats."""
+    value = row.get(col)
+    return '' if value is None or pd.isna(value) else str(value)
 
-def import_clues_from_df(engine: Engine, df: pd.DataFrame) -> int:
-    count = 0
+# Columns each import CSV must contain (extra columns, e.g. clue_tags' own `id`,
+# are ignored). These mirror the DB table exports.
+CLUES_CSV_COLUMNS = {'id', 'text', 'difficulty', 'answer', 'definition', 'transformation', 'author'}
+CLUE_TAGS_CSV_COLUMNS = {'clue_id', 'type'}
+
+def import_clues_with_tags(engine: Engine, clues_df: pd.DataFrame, tags_df: pd.DataFrame) -> dict:
+    """Bulk-import a clues CSV and a clue_tags CSV (as exported from the DB) into
+    the clues and clue_tags tables, linked by the clue id.
+
+    The original production clue `id`s are preserved so the imported data mirrors
+    production exactly and each tag's `clue_id` stays valid as-is — important
+    because attempts/feedback/clue_tags all FK to clues.id. After inserting with
+    explicit ids we bump clues_id_seq past the max so the auto-increment used by
+    the Add Clues / Approve flows keeps working. The clue_tags surrogate `id` is
+    NOT preserved (nothing references it) — those ids are left to the sequence.
+
+    Runs in a single transaction: any bad row (e.g. an over-length field) rolls
+    the whole import back. Returns a summary dict; `tags_skipped` counts tag rows
+    whose clue_id wasn't present in the clues CSV."""
+    clue_ids = set()
+    tags_imported = 0
+    tags_skipped = 0
     with engine.begin() as conn:
-        for _, row in df.iterrows():
-            clue_id = conn.execute(
-                text("INSERT INTO clues (text, difficulty, answer, definition, transformation) "
-                     "VALUES (:text, :difficulty, :answer, :definition, :transformation) "
-                     "RETURNING id"),
+        for _, row in clues_df.iterrows():
+            validate_clue_lengths(
+                _cell(row, 'text'), _cell(row, 'answer'), _cell(row, 'definition'),
+                _cell(row, 'transformation'), _cell(row, 'author'),
+            )
+            clue_id = int(row['id'])
+            conn.execute(
+                text("INSERT INTO clues (id, text, difficulty, answer, definition, transformation, author) "
+                     "VALUES (:id, :text, :difficulty, :answer, :definition, :transformation, :author)"),
                 {
-                    "text": row["text"],
-                    "difficulty": row["difficulty"],
-                    "answer": row["answer"],
-                    "definition": row["definition"],
-                    "transformation": row["transformation"],
+                    "id": clue_id,
+                    "text": _cell(row, 'text'),
+                    "difficulty": int(row['difficulty']),
+                    "answer": _cell(row, 'answer'),
+                    "definition": _cell(row, 'definition'),
+                    "transformation": _cell(row, 'transformation'),
+                    "author": _cell(row, 'author'),
                 },
-            ).fetchone()[0]
-            for tag in parse_tags(row["tags"]):
-                conn.execute(
-                    text("INSERT INTO clue_tags (clue_id, type) "
-                         "VALUES (:clue_id, :type)"),
-                    {
-                        "clue_id": clue_id,
-                        "type": tag,
-                    },
-                )
-            count += 1
-    return count
+            )
+            clue_ids.add(clue_id)
+
+        for _, row in tags_df.iterrows():
+            clue_id = int(row['clue_id'])
+            # Skip orphan tags rather than hit a foreign-key error and roll back
+            # the whole import because of one stray row.
+            if clue_id not in clue_ids:
+                tags_skipped += 1
+                continue
+            conn.execute(
+                text("INSERT INTO clue_tags (clue_id, type) VALUES (:clue_id, :type)"),
+                {"clue_id": clue_id, "type": _cell(row, 'type')},
+            )
+            tags_imported += 1
+
+        # Realign the SERIAL sequence with the explicit ids we just inserted so the
+        # next nextval() (Add Clues / Approve) doesn't collide with an existing id.
+        if clue_ids:
+            conn.execute(text("SELECT setval('clues_id_seq', (SELECT MAX(id) FROM clues))"))
+
+    return {"clues": len(clues_df), "tags": tags_imported, "tags_skipped": tags_skipped}
 
 def select_random_clue(df: pd.DataFrame, exclude_ids=None) -> pd.DataFrame:
     pool = df
@@ -259,6 +294,10 @@ def select_random_clue(df: pd.DataFrame, exclude_ids=None) -> pd.DataFrame:
         # Fall back to the full set if every clue is excluded (e.g. all solved)
         if len(candidate) > 0:
             pool = candidate
+    # No clues to pick from (e.g. an empty/freshly-reset DB). Return None so the
+    # caller can show an empty state instead of pandas raising on sample().
+    if len(pool) == 0:
+        return None
     return pool.sample(1)
 
 def select_oldest_submission(df: pd.DataFrame) -> pd.DataFrame:
