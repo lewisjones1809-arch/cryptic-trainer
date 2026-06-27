@@ -17,7 +17,8 @@ with st.expander('Expand to read more!', expanded=True):
     st.markdown('Cryptic Trainer is a passion project created to try and do two main things:  \n' \
                 '1. To bring the joy of cryptic crosswords to more people in a fun and accessible way and help more people understand how to solve them and hopefully fall in love with solving them too!  \n' \
                 '2. To test my own coding abilities and my ability to deploy and maintain an app.')
-    st.markdown('As this is a personal project, there are no current plans to monetize the app in any way, and I want to listen to the user community for feedback and ideas about how to improve the app to make it even better for everyone!')
+    st.markdown('As this is a personal project, there are no current plans to monetize the app in any way, and I want to listen to the user community for feedback and ideas about how to improve the app to make it even better for everyone!  \n' \
+                'This project is fully open source, repo can be found here: https://github.com/lewisjones1809-arch/cryptic-trainer')
 
 
 st.subheader('How do you source your clues?')
