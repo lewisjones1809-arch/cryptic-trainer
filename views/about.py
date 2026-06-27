@@ -3,6 +3,8 @@ from functions import get_all_clues
 
 con = st.connection("postgres", type="sql")
 
+# Pull the clue pool so we can show live counts of clues and named authors lower down the
+# page. Anonymous clues are excluded from the author count.
 clues = get_all_clues(con.engine)
 num_clues = len(clues)
 unique_authors = clues[clues['author'] != 'Anonymous']

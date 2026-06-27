@@ -5,6 +5,7 @@ con = st.connection("postgres", type="sql")
 
 st.title('Settings')
 
+# Settings are tied to a user, so require login before showing anything
 if not st.user.is_logged_in:
     st.write("Please log in to continue.")
     if st.button("Log in with Google"):
@@ -13,6 +14,7 @@ if not st.user.is_logged_in:
 
 user = get_current_user(con.engine)
 
+# Greet the user and give them a way to log out
 st.write(f"Welcome, {st.user.name}!")
 if st.button("Log out"):
     st.logout()
@@ -20,6 +22,7 @@ if st.button("Log out"):
 st.divider()
 st.subheader('Report a bug')
 
+# Bug report form. The description is required, the steps are optional.
 with st.form('Report a bug', clear_on_submit=True, enter_to_submit=False):
 
     desc = st.text_input('Describe the bug*', max_chars=MAX_BUG_DESC_CHARS)
@@ -27,6 +30,7 @@ with st.form('Report a bug', clear_on_submit=True, enter_to_submit=False):
 
     bug_submit = st.form_submit_button('Report Bug')
 
+# On submit, check the description is filled in, then save the report and handle any errors
 if bug_submit:
     if not desc.strip():
         st.error('Please describe the bug')

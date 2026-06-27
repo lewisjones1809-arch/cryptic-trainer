@@ -14,8 +14,8 @@ st.title('Admin Panel')
 
 con = st.connection("postgres", type="sql")
 
-# Defence in depth: the nav hides this page from non-admins, but anyone could
-# still reach it by URL, so re-check here.
+# Defence in depth: the nav hides this page from non-admins, but anyone could still reach
+# it by URL, so we re-check here.
 if not st.user.is_logged_in:
     st.write("Please log in to continue.")
     if st.button("Log in with Google"):
@@ -30,18 +30,22 @@ mode = st.selectbox('Select Task', ['Review Submissions', 'Add Clues', 'Edit Clu
 
 submissions = get_all_submissions(con.engine)
 
+# Get the tags for a submission, returning an empty list if there is no submission
 def load_submission_tags(submission):
     if submission is None:
         return []
     return get_submission_tags(con.engine, submission['id'])
 
+# Read a DataFrame column as plain strings, turning any missing values into empty strings
 def _txt(df, col):
     return df[col].astype('string[python]').fillna('')
 
+# On first load, pick the oldest pending submission and its tags to show in the review tab
 if 'submission' not in st.session_state:
     st.session_state.submission = select_oldest_submission(submissions)
     st.session_state.tags = load_submission_tags(st.session_state.submission)
 
+# Import CSV: bulk-load a clues CSV and a clue-tags CSV exported from the database
 if mode == 'Import CSV':
     st.write('Upload the clues and clue-tags CSVs (as exported from the database). '
              'Clue ids are preserved so the tags link up correctly.')
@@ -88,6 +92,7 @@ if mode == 'Import CSV':
                 status.update(label="Import failed", state="error")
                 st.error('Something went wrong importing. Please check the CSVs and try again.')
 
+# Edit Clues: pick an existing clue and update any of its fields and tags
 if mode == 'Edit Clues':
     difficulties = [1,2,3,4,5]
     clues = get_all_clues(con.engine)
@@ -131,6 +136,7 @@ if mode == 'Edit Clues':
                     st.error('Something went wrong saving the edit. Please try again.')
 
 
+# Review Submissions: work through pending user submissions, approving or deleting each
 if mode == 'Review Submissions':
     if st.button('Refresh Submissions'):
         clear_submission_caches()
@@ -191,6 +197,7 @@ if mode == 'Review Submissions':
                 except Exception:
                     st.error('Something went wrong approving the clue. Please try again.')
 
+# Add Clues: write a brand new clue straight into the clues table
 if mode == 'Add Clues':
     with st.form("Add a Clue", clear_on_submit=True, enter_to_submit=False):
     
@@ -222,6 +229,7 @@ if mode == 'Add Clues':
             except Exception:
                 st.error('Something went wrong adding the clue. Please try again.')
 
+# View Bugs: browse the bug reports users have submitted, and delete them once dealt with
 if mode == 'View Bugs':
 
     bugs = get_all_bugs(con.engine)

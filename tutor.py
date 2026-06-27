@@ -8,9 +8,11 @@ from dotenv import load_dotenv
 load_dotenv()
 
 
+### API SETUP AND HELPERS ###
+
+# Use GROQ_API_KEY from the .env file when running locally, and fall back to streamlit
+# secrets when deployed.
 def get_groq_api_key():
-    """Use GROQ_API_KEY from .env when running locally, fall back to
-    Streamlit secrets when deployed."""
     api_key = os.getenv("GROQ_API_KEY")
     if not api_key:
         try:
@@ -22,21 +24,19 @@ def get_groq_api_key():
 
 client = Groq(api_key=get_groq_api_key())
 
-# One strong model for generation, retries, and the leak judge.
+# One strong model used for generation, retries, and the leak judge.
 PRIMARY_MODEL = "openai/gpt-oss-120b"
 MAX_RETRIES = 3
 
-# Wordplay fragments/answers are written ALL-CAPS in transformation,
-# e.g. "Friend = MATE; Arab money = RIAL; combine MATE + RIAL for MATERIAL".
+# Wordplay fragments and answers are written in ALL-CAPS in the transformation, for
+# example "Friend = MATE; Arab money = RIAL; combine MATE + RIAL for MATERIAL".
 ALLCAPS_TOKEN_RE = re.compile(r"\b[A-Z]{3,}\b")
 WORD_RE = re.compile(r"[A-Za-z]+")
 
-# Grammatical glue only — articles, conjunctions, prepositions, pronouns and
-# auxiliaries that can never be a clue's answer or wordplay fodder. These are
-# subtracted from the blocklist so the tutor isn't blocked on connective words.
-# IMPORTANT: keep this to function words ONLY. The blocklist is built per-clue
-# from that clue's answer + ALL-CAPS fodder, so any CONTENT word in it (e.g. RED,
-# LAD, MATE) is a genuine spoiler for that clue — never allowlist content words.
+# Grammatical glue only (articles, conjunctions, prepositions, pronouns, auxiliaries) that
+# can never be an answer or wordplay fodder, so the tutor isn't blocked on connective words.
+# IMPORTANT: function words ONLY. The blocklist is built per-clue from the answer plus its
+# ALL-CAPS fodder, so any content word here (for example RED, LAD, MATE) is a real spoiler.
 COMMON_WORD_ALLOWLIST = frozenset({
     "the", "and", "for", "but", "nor", "yet", "are", "was", "were", "you",
     "any", "all", "can", "had", "has", "have", "her", "his", "its", "our",
@@ -152,22 +152,36 @@ first, THEN apply it. The two steps are separate: (1) what does this indicator m
 (2) now do it. Never collapse them into one leading question."""
 
 
+### TUTOR HELPERS AND LEAK GUARD ###
+
+# Build the authoritative letter counts for the answer and every ALL-CAPS wordplay
+# fragment, so the model never has to count letters itself (LLMs miscount).
 def letter_counts(clue_row) -> str:
-    """Authoritative letter counts for the answer and every ALL-CAPS wordplay
-    fragment, so the model never has to count letters itself (LLMs miscount)."""
+
+    # Set up the answer, a list to hold each "WORD=count" pair, and a set to avoid repeats
     answer = str(clue_row['answer'])
     pairs = []
     seen = set()
+
+    # Walk every ALL-CAPS fodder fragment in the transformation followed by each word of
+    # the answer, recording the length of each token the first time we see it
     for tok in ALLCAPS_TOKEN_RE.findall(str(clue_row['transformation'])) \
             + WORD_RE.findall(answer):
         up = tok.upper()
         if up not in seen:
             seen.add(up)
             pairs.append(f"{up}={len(tok)}")
+
+    # Join the pairs into one comma-separated string for the model to read
     return ", ".join(pairs)
 
 
+# Build the reference context block the tutor model gets for a clue (the clue, its true
+# definition/wordplay split, difficulty, letter counts and the answer). The solver never
+# sees any of this.
 def build_context(clue_row) -> str:
+
+    # Assemble the reference block, line by line, from every field of the clue
     answer = clue_row['answer']
     return (f"CLUE: {clue_row['text']}\n"
             f"ENUMERATION: ({len(answer.replace(' ', ''))})\n"
@@ -183,67 +197,93 @@ def build_context(clue_row) -> str:
             f"ANSWER (reference only, NEVER reveal or spell): {answer}")
 
 
+# Build the set of lowercased spoiler tokens to forbid as whole words. This is the answer
+# (along with its individual words and its no-space form) plus every ALL-CAPS fodder
+# fragment in the transformation, minus the common words the tutor needs to talk.
 def build_blocklist(clue_row) -> set:
-    """Lowercased spoiler tokens to forbid as whole words: the answer (and its
-    words / no-space form) plus every ALL-CAPS fodder fragment in the
-    transformation, minus common words the tutor needs."""
+
+    # Pull out the answer and the transformation as strings to work from
     answer = str(clue_row['answer'])
     transformation = str(clue_row['transformation'])
 
+    # Start with the answer itself, both as written and with its spaces removed
     blocklist = set()
     blocklist.add(answer.lower())
     blocklist.add(answer.replace(' ', '').lower())
+
+    # Add each individual word of the answer that is long enough to be a real spoiler
     for word in WORD_RE.findall(answer):
         if len(word) >= 3:
             blocklist.add(word.lower())
+
+    # Add every ALL-CAPS fodder fragment from the transformation
     for token in ALLCAPS_TOKEN_RE.findall(transformation):
         blocklist.add(token.lower())
 
+    # Drop any common words the tutor needs to talk, leaving only genuine spoilers
     return {tok for tok in blocklist if tok and tok not in COMMON_WORD_ALLOWLIST}
 
 
+# Work out which blocklist tokens the solver has already produced themselves, so the tutor
+# may echo them back to affirm correct work. The full answer is NEVER released, so the
+# tutor cannot confirm the solution by repeating it.
 def solver_released_words(clue_row, history: list, user_message: str) -> set:
-    """Blocklist tokens the solver has already produced themselves (so the tutor
-    may echo them back to affirm correct work). The full answer is NEVER released
-    — the tutor must not confirm the solution by repeating it."""
+
+    # Gather every word the solver has typed, starting with the current message
     produced = {w.lower() for w in WORD_RE.findall(user_message)}
+
+    # Add the words from each of the solver's earlier turns too
     for turn in history:
         if turn.get("role") == "user":
             produced |= {w.lower() for w in WORD_RE.findall(turn["text"])}
+
+    # Work out the answer forms so we can make sure they are never released
     answer = str(clue_row["answer"])
     answer_forms = {answer.lower(), answer.replace(" ", "").lower()}
+
+    # Keep only the blocklisted words the solver actually produced, minus the answer itself
     return (build_blocklist(clue_row) & produced) - answer_forms
 
 
+# Return the first blocklisted word found in the reply, or None if it's clean. The no-space
+# scan is limited to the answer forms (to catch a spaced-out answer), since running it over
+# every fodder token would false-positive on fragments inside real words ('ating' in 'coating').
 def deterministic_leak(reply: str, blocklist: set, answer_forms=()):
-    """Return the first blocklisted token found in the reply as a whole word
-    (case-insensitive), or None. The no-space substring scan is limited to the
-    answer forms (to catch a spaced-out answer) — running it over all fodder
-    tokens would false-positive on fragments inside legit words (e.g. 'ating'
-    inside 'coating')."""
+
+    # Pull out the whole words of the reply and see if any of them are on the blocklist
     tokens = {tok.lower() for tok in WORD_RE.findall(reply)}
     hit = tokens & blocklist
     if hit:
         return next(iter(hit))
 
+    # No whole-word hit, so collapse the reply to bare letters and check whether the answer
+    # has been spelled out with spaces or punctuation between its letters
     collapsed = re.sub(r"[^a-z]", "", reply.lower())
     for form in answer_forms:
         collapsed_form = re.sub(r"[^a-z]", "", form.lower())
         if len(collapsed_form) >= 4 and collapsed_form in collapsed:
             return form
+
+    # Nothing leaked
     return None
 
 
+# Ask the strong model whether the reply leaks, returning a (leaks, reason) pair. The
+# released argument holds wordplay parts the solver already produced, which the tutor is
+# allowed to reuse. This fails safe, so any error counts as a leak.
 def judge_leak(clue_row, reply: str, released=()):
-    """Ask the strong model whether the reply leaks. Returns (leaks, reason).
-    `released` are wordplay parts the solver already produced, which the tutor is
-    allowed to reuse. Fails safe: any error counts as a leak."""
+
+    # Build the message for the judge, listing the answer, the true split, and the parts the
+    # solver has already worked out (which the tutor is allowed to reuse)
     allowed = ", ".join(sorted(released)) or "(none yet)"
     user = (f"ANSWER: {clue_row['answer']}\n"
             f"DEFINITION: {clue_row['definition']}\n"
             f"WORDPLAY: {clue_row['transformation']}\n"
             f"SOLVER-IDENTIFIED PARTS (tutor MAY reuse these freely): {allowed}\n\n"
             f"CANDIDATE REPLY:\n{reply}")
+
+    # Ask the model for a JSON verdict, then read out whether it leaks and why. If anything
+    # goes wrong we fail safe by treating it as a leak.
     try:
         content = client.chat.completions.create(
             model=PRIMARY_MODEL,
@@ -259,29 +299,41 @@ def judge_leak(clue_row, reply: str, released=()):
         return True, "judge unavailable"
 
 
+# A last-resort nudge used when no clean generated reply survives the guard. It names the
+# definition (a word already visible in the clue surface) so a stuck solver still makes
+# progress, and it never reveals the answer.
 def safe_fallback_reply(clue_row) -> str:
-    """Last-resort nudge when no clean generated reply survives the guard. Names
-    the definition (a word already visible in the clue surface) so a stuck solver
-    still makes progress; never reveals the answer."""
     definition = str(clue_row["definition"]).strip()
     return (f'Let\'s lock down one thing: the straight definition in this clue is '
             f'"{definition}", so the rest is the wordplay. Looking only at that wordplay '
             f'part, what do you think it\'s telling you to do with the letters?')
 
 
+# Strip a string down to lowercase letters and digits so two messages can be compared for
+# sameness regardless of punctuation or casing.
 def _normalize(text: str) -> str:
     return re.sub(r"[^a-z0-9]", "", str(text).lower())
 
 
+# If the solver is repeating themselves or has been at it a while, return an instruction
+# telling the model to break the loop and escalate its help. Otherwise return None.
 def stuck_directive(history: list, user_message: str):
-    """If the solver is repeating themselves or has been at it a while, return an
-    instruction telling the model to break the loop and escalate; else None."""
+
+    # Collect everything the solver has said so far
     user_turns = [t["text"] for t in history if t.get("role") == "user"]
+
+    # Check whether the current message repeats one of their earlier ones
     norm_current = _normalize(user_message)
     repeated = bool(norm_current) and any(_normalize(t) == norm_current for t in user_turns)
+
+    # Count how many goes they have had, including this one
     attempts = len(user_turns) + 1  # include the current message
+
+    # If they are neither repeating nor several attempts in, there is nothing to add
     if not (repeated or attempts >= 4):
         return None
+
+    # Otherwise return a directive telling the model to break the loop and escalate its help
     return ("SOLVER IS STUCK"
             + (" and is repeating the same answer" if repeated else "")
             + f" (solve attempt {attempts}). Do NOT ask another similar question or "
@@ -291,7 +343,15 @@ def stuck_directive(history: list, user_message: str):
             "outright as a concession. Make real progress this turn — no stalling.")
 
 
+### MAIN TUTOR ENTRY POINT ###
+
+# Generate the tutor's next reply for a clue. Builds the message history, runs each model
+# reply through the deterministic and model-based leak guards, and retries up to MAX_RETRIES
+# times, falling back to a safe nudge if nothing clean survives.
 def get_tutor_reply(clue_row, history: list, user_message: str) -> str:
+
+    # Seed the conversation with the system prompt, the clue's reference context, and a
+    # primed assistant acknowledgement, then replay the existing chat history
     messages = [
         {"role": "system", "content": SYSTEM_PROMPT},
         {"role": "user", "content": build_context(clue_row)},
@@ -302,27 +362,33 @@ def get_tutor_reply(clue_row, history: list, user_message: str) -> str:
         messages.append({"role": role, "content": turn["text"]})
     messages.append({"role": "user", "content": user_message})
 
+    # If the solver looks stuck, append an extra system directive telling the model to escalate
     directive = stuck_directive(history, user_message)
     if directive:
         messages.append({"role": "system", "content": directive})
 
+    # Work out what the tutor is and isn't allowed to say for this clue. Anything the solver
+    # has already produced themselves is removed from the blocklist so it can be echoed back
     released = solver_released_words(clue_row, history, user_message)
     blocklist = build_blocklist(clue_row) - released
     answer = str(clue_row["answer"])
     answer_forms = {answer.lower(), answer.replace(" ", "").lower()}
 
+    # Try up to MAX_RETRIES times to get a reply that passes both leak guards
     for _ in range(MAX_RETRIES):
         reply = client.chat.completions.create(
             model=PRIMARY_MODEL,
             messages=messages,
         ).choices[0].message.content
 
+        # First the cheap deterministic check, then the model judge only if that passes
         reason = deterministic_leak(reply, blocklist, answer_forms)
         if reason is None:
             leaks, reason = judge_leak(clue_row, reply, released)
             if not leaks:
                 return reply
 
+        # The reply leaked, so tell the model what went wrong and ask it to try again
         messages.append({"role": "assistant", "content": reply})
         messages.append({"role": "user",
                          "content": (f"Your last reply leaked: {reason}. Don't use that "
@@ -330,4 +396,5 @@ def get_tutor_reply(clue_row, history: list, user_message: str) -> str:
                                      "description of the method. Reply again with one "
                                      "Socratic question only.")})
 
+    # Every retry leaked, so give the safe last-resort nudge instead
     return safe_fallback_reply(clue_row)

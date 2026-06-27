@@ -5,8 +5,8 @@ from functions import (
     MAX_TRANSFORMATION_CHARS, MAX_AUTHOR_CHARS,
 )
 
-# How many clues one session may submit before we ask them to come back later.
-# The moderation queue is the real backstop; this just blunts rapid spam.
+# How many clues one session may submit before we ask them to come back later. The
+# moderation queue is the real backstop, so this just blunts rapid spam.
 SUBMISSION_SESSION_CAP = 10
 
 con = st.connection("postgres", type="sql")
